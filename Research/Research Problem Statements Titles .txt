@@ -1,0 +1,29 @@
+ Problem Statements:
+
+PS_1:
+
+"Architecture-Driven Trade-offs in Semantic Segmentation: Boundary Precision vs Region Accuracy under Real-World Degradations"
+
+PS_2:
+
+"Photometric Robustness in CNN-Based Semantic Segmentation: How Architectural Choices Handle Lighting and Colour Distribution Shifts"
+
+
+** 1 and 2 can be combined into one 
+
+
+PS_3:
+
+"Geometric Perception Under Photometric Stress: Surface Normal Estimation Robustness to Lighting Variation Across CNN Architectures"
+
+PS_4:
+
+"Attention Under Adversity: How Salient Object Detection Architectures Respond to Visual Clutter and Image Quality Degradation"
+
+PS_5:
+
+"Monocular Depth Estimation Under Adverse Conditions: Architecture Robustness to Weather and Low-Light Degradations"
+
+PS_6:
+
+"Efficiency-Robustness Trade-offs in Real-Time Semantic Segmentation: How Model Compression Affects Degradation Resilience""

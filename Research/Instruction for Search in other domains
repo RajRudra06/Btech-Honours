@@ -1,0 +1,68 @@
+### Phase 1: Initial Exploration using Google Scholar
+
+**Goal:** To efficiently identify highly cited **survey/review papers** in a new AI/ML domain, and then to pinpoint the **foundational papers** frequently referenced within them.
+
+**Platform:** Google Scholar (scholar.google.com)
+
+---
+
+#### **Step 1: Initial Broad Search for Survey Papers**
+
+1.  **Access Google Scholar:** Open your web browser and go to `scholar.google.com`.
+2.  **Formulate Your Query:** In the search bar, type a broad term for the AI/ML domain you're interested in, immediately followed by keywords like `"survey"` or `"review"`.
+    *   **Example Queries:**
+        *   `"natural language processing survey"`
+        *   `"reinforcement learning review"`
+        *   `"generative models survey"`
+        *   `"graph neural networks review"`
+    *   **Why this works:** You're explicitly telling Google Scholar that you're not looking for a single new research contribution, but rather a comprehensive overview of the field.
+
+---
+
+#### **Step 2: Filter and Evaluate Initial Results**
+
+1.  **Apply Time Filters (Crucial!):** On the left-hand sidebar of the Google Scholar results page, you'll see a section for filtering by publication year.
+    *   **Start aggressively recent:** Click on `Since 2023` or `Since 2022`. This ensures you're getting surveys that cover the very latest advancements.
+    *   **Expand if needed:** If the initial recent filter yields too few relevant results, gradually expand to `Since 2021`, then `Since 2020`. For foundational understanding, you might occasionally go further back, but generally, surveys from the last 3-5 years are ideal as they summarize earlier work too.
+2.  **Scan Titles and Abstracts:** Read the titles and abstracts of the search results.
+    *   **Look for definitive keywords:** Prioritize papers with titles like "A Survey of...", "Review of...", "State-of-the-Art in...", "A Comprehensive Overview of...".
+    *   **Check the abstract for scope:** Does the abstract confirm that the paper aims to provide a broad overview of the field, its history, major techniques, and open challenges?
+3.  **Evaluate by Citations:** Pay close attention to the number of times a paper has been cited (visible directly below the abstract snippet).
+    *   **Prioritize High Citations:** For a survey paper, a high citation count (e.g., hundreds or even thousands for papers a few years old) is the strongest indicator of its influence and how widely it's been used by other researchers to understand the field.
+    *   **Consider Age vs. Citations:** A survey from 2023 with 500 citations is often more impactful than one from 2018 with 500 citations, as it gained influence faster.
+
+---
+
+#### **Step 3: Choose and Read Your First Survey Paper (Your Primary Learning Resource)**
+
+1.  **Select the Best Candidate:** Pick 1-2 survey papers that meet the criteria above (recent, clearly comprehensive, high citations).
+2.  **Read the Entire Survey Paper:** This is where you gain your initial high-level understanding of the new domain.
+    *   **Focus on the "Big Picture":** Don't get bogged down in the minute mathematical details of every single algorithm mentioned. Your goal here is conceptual understanding.
+    *   **Key Information to Extract:**
+        *   **Core Concepts and Definitions:** What are the fundamental problems, terminology, and objectives of this field?
+        *   **Major Sub-areas/Branches:** How is the field typically divided? What are its main research directions?
+        *   **Landmark Papers & Foundational Techniques:** The survey *will* explicitly mention "pioneering," "classic," or "foundational" papers/algorithms that shaped the field. These are critically important.
+        *   **Evaluation Metrics & Benchmarks:** How is progress typically measured in this domain? What are the common datasets or evaluation protocols?
+        *   **Open Challenges & Future Directions:** This section is incredibly valuable for understanding the current limitations and where active research is concentrated. It can also hint at potential future research topics.
+    *   **Take Notes:** Keep a running document (e.g., a simple text file or a mind map) summarizing the key takeaways, notable papers, and interesting sub-areas.
+
+---
+
+#### **Step 4: Identify and Briefly Review Foundational Papers**
+
+1.  **List Landmark Papers:** As you read your chosen survey, create a list of the 3-5 most frequently cited or explicitly highlighted "landmark" papers for key concepts or breakthrough models. For example, in NLP, this might be "Attention Is All You Need" (Transformer) or "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding."
+2.  **Search for Each Foundational Paper:** Go back to Google Scholar for each paper on your list.
+3.  **Quick Evaluation (Abstract, Intro, Conclusion):**
+    *   **Read the Abstract and Introduction:** Understand the specific problem this paper addressed and its core contribution.
+    *   **Read the Conclusion:** See what the authors claimed as their main findings and implications.
+    *   **Check Citation Count:** A very high citation count (often thousands) for these foundational papers confirms their widespread impact.
+    *   **Skim Figures/Diagrams:** Visuals can quickly convey the essence of an architecture or a key idea.
+    *   **Do NOT try to re-implement or understand every technical detail.** The goal is a high-level appreciation of its significance and general approach.
+
+---
+
+**Crucial Advice for This Phase:**
+
+*   **Timebox Your Efforts:** Dedicate a specific, limited amount of time for this initial exploration (e.g., 4-8 hours total, or spread over a few days). The goal is to get a general lay of the land, not to become an expert.
+*   **Resist the Rabbit Hole:** It's very easy to get pulled into reading one interesting paper after another. Remember your primary objective is your current research paper. This exploration is for *future* context and learning.
+*   **Trust the Surveys:** Surveys are written by experts to guide newcomers. Lean on their expertise to filter the thousands of papers into a manageable few.

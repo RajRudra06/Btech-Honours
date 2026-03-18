@@ -1,0 +1,402 @@
+Research Context & Current State (Comprehensive Brief — Updated)
+1. Academic context and objective
+
+I am pursuing a minor degree in AI/ML, which requires the publication of a research paper.
+The expectation is not theoretical novelty or new architectures, but a sound, defensible, empirical research contribution that demonstrates research maturity and methodological rigor.
+
+My background includes:
+
+Formal coursework in AI and Deep Learning (NPTEL)
+
+Andrew Ng’s Deep Learning Specialization
+
+Strong conceptual grounding in CNN-based Computer Vision
+
+A preference for analysis-driven, understanding-focused research, rather than application-only benchmarking
+
+The objective is to produce a non-toy, research-grade paper with:
+
+Clear research intent
+
+Controlled experimental design
+
+Insightful analysis of model behavior
+
+Honest scope, assumptions, and limitations
+
+2. Path selection: framing the research intent (important)
+
+Before selecting a task or models, the research was framed using two high-level research paths, based on intent, not technique.
+
+Path A — Problem-driven research (application-first)
+
+Starts from a specific real-world problem
+
+Models are selected as tools to solve that problem
+
+Architecture reasoning is required but subordinate to the application
+
+Insights are often problem- and domain-specific
+
+Path B — Field-driven / phenomenon-driven research (Understanding-first)
+
+Starts from a field or task as a testbed
+
+The goal is to study model behavior, properties, limitations, and trade-offs
+
+The task is not the contribution; it is the vehicle for analysis
+
+Results are generalizable across applications
+
+Real-world relevance appears as implications, not claims
+
+This work explicitly follows Path B.
+
+3. Research hierarchy used to structure the topic
+
+Under Path B, the topic was structured using the following hierarchy:
+
+Path B: Field-driven research
+ └── Chosen field / task (what is being studied)
+      └── Research lenses (how it is studied)
+
+
+Key clarifications:
+
+Semantic segmentation, object detection, classification, etc. are tasks / fields
+
+Architecture comparison, robustness, generalisation, efficiency are research lenses
+
+Lenses are not fields and are not paths
+
+Multiple lenses can coexist under the same Path B study
+
+A valid Path B paper is therefore:
+
+One field / task + one main research lens + (optionally) one or more supporting lenses
+
+4. Evaluation of possible Computer Vision tasks
+
+Multiple Computer Vision tasks were evaluated systematically, not by familiarity or preference:
+
+Semantic segmentation
+
+Low-level vision
+
+Image classification
+
+Object detection
+
+Tracking
+
+They were compared along research-relevant dimensions:
+
+Analytical depth
+
+Metric stability
+
+Experimental noise
+
+Interpretability of failure modes
+
+Risk of inconclusive or confounded results
+
+Assessment summary
+Task	Analytical depth	Experimental noise	Risk
+Low-level vision	Very high	Very low	Very low
+Semantic segmentation	High	Low	Low
+Image classification	Medium	Low	Low
+Object detection	Medium	Medium–high	Medium
+Tracking	Low	High	High
+
+Semantic segmentation was selected because it offers:
+
+Pixel-level supervision (rich error signal)
+
+Smooth, interpretable degradation behavior (IoU-based metrics)
+
+Visually analyzable failure modes
+
+Clear manifestation of architectural inductive biases
+
+This makes it an excellent field-level testbed for Path B research.
+
+5. Research lenses considered and selected
+
+Within Path B, several research lenses were considered:
+
+Architecture comparison
+
+Robustness & failure analysis
+
+Generalisation & real-world gap
+
+Efficiency-focused analysis
+
+Data-centric analysis
+
+Rather than defining the path itself, these lenses are ways of interrogating the field.
+
+Final lens selection for this work
+
+Primary lens: Architecture comparison
+
+Supporting lens: Robustness to real-world image degradation
+
+This choice was made because:
+
+The pairing naturally supports cause–effect reasoning
+
+Architectural design → behavioral outcome can be analyzed cleanly
+
+The setup is controlled, interpretable, and well-established in CV literature
+
+Importantly, this does not restrict future lens changes while remaining on Path B.
+
+6. Final locked research direction
+Path
+
+Path B — Field-driven (understanding-first) research
+
+Field / task
+
+Semantic segmentation
+
+Research framing
+
+Architecture-based robustness study
+
+Locked problem statement
+
+“An Architecture-Based Robustness Analysis of CNN Models for Semantic Segmentation under Real-World Image Degradation.”
+
+Clarifications:
+
+No proposal of new architectures
+
+No state-of-the-art performance claims
+
+Contribution is empirical understanding of model behavior, not application dominance
+
+7. Meaning of “architecture comparison” in this context
+
+Architecture comparison is not library-level benchmarking.
+It refers to comparing architectural design philosophies, such as:
+
+Encoder–decoder structure
+
+Strength and role of skip connections
+
+Multi-scale context aggregation
+
+Lightweight vs heavyweight encoders
+
+In this study:
+
+Architecture = independent variable
+
+Robustness behavior = dependent variable
+
+8. Meaning of “robustness” in this work
+
+Robustness is defined as:
+
+Performance stability when inputs deviate from ideal, clean training conditions.
+
+This explicitly excludes adversarial robustness.
+
+Realistic degradations considered (scope-controlled)
+
+Gaussian noise (sensor noise)
+
+Blur (motion or defocus)
+
+Resolution downscaling (distance, compression)
+
+Critical experimental constraint:
+
+All models are trained only on clean data
+
+Robustness is evaluated only at inference
+
+No retraining or adaptation is performed
+
+This isolates inherent architectural robustness, consistent with Path B goals.
+
+9. Model architectures selected (with rationale)
+
+A small, conceptually diverse set of CNN-based architectures was chosen.
+Each represents a distinct inductive bias.
+
+Model 1: U-Net with ResNet encoder
+
+Strong encoder–decoder structure
+
+Explicit skip connections
+
+Emphasis on spatial detail preservation
+
+Represents: boundary-aware architectures
+
+Model 2: DeepLabV3+ with ResNet backbone
+
+Atrous (dilated) convolutions
+
+Multi-scale context aggregation
+
+Emphasis on semantic consistency
+
+Represents: context-heavy architectures
+
+Model 3 (optional): U-Net with MobileNet encoder
+
+Lightweight encoder
+
+Lower capacity, higher efficiency
+
+Represents: efficiency-biased architectures
+
+The comparison is conceptual and architectural, not merely performance-based.
+
+10. Experimental methodology (precise but high-level)
+
+Select one dataset (urban scenes recommended)
+
+Train all models using:
+
+Identical data splits
+
+Identical training protocol
+
+Evaluate on:
+
+Clean validation data
+
+Degraded variants of the same data
+
+Measure:
+
+Mean IoU degradation trends
+
+Class-wise failure behavior
+
+Boundary erosion effects
+
+Perform:
+
+Quantitative analysis
+
+Qualitative failure case inspection
+
+Derive architecture → behavior insights
+
+11. Nature of the contribution
+
+The paper contributes:
+
+A controlled, field-driven study of segmentation architectures
+
+A systematic robustness analysis under realistic visual degradation
+
+Analytical insights linking architectural choices to failure modes
+
+It deliberately avoids:
+
+Overclaiming novelty
+
+Application-specific performance claims
+
+Uncontrolled benchmarking
+
+12. Why this is not a toy project
+
+The work is not framed as:
+
+“Which model performs better?”
+
+It is framed as:
+
+“What architectural properties make segmentation models more or less robust under realistic conditions?”
+
+This focus on understanding phenomena, rather than solving a single problem, is what places the work firmly within Path B research.
+
+13. Current status / pending decision
+
+All conceptual decisions are locked except one:
+
+Dataset category
+
+Urban / outdoor scenes (recommended)
+
+Medical imaging (valid, but requires stricter justification)
+
+Once the dataset is fixed, the remaining steps are executional:
+
+Dataset selection
+
+Final model instantiation
+
+Paper outline
+
+Timeline execution
+
+One-line summary
+
+This work is a Path B, field-driven study that uses semantic segmentation as a testbed to analyze how CNN architectural design choices influence robustness under real-world image degradation, with controlled experiments and analysis-focused conclusions.
+
+Path B (Field-driven research)
+ └── Chosen field / task (e.g., semantic segmentation)
+      └── Research lenses
+           ├── Architecture comparison
+           ├── Robustness analysis
+           ├── Generalisation study
+           ├── Efficiency trade-offs
+           └── Data-centric analysis
+
+ * Interpretability/Explainability (XAI) Analysis:
+       * Focus: Studying why models make certain decisions, trying to
+         make their internal workings transparent (e.g., feature
+         importance, saliency maps, causal explanations of
+         predictions).
+       * Example PS: "An Explainability-Driven Analysis of Layer-wise
+         Relevance Propagation in CNNs for Medical Image Diagnosis."
+   * Fairness/Bias Analysis:
+       * Focus: Investigating whether models exhibit unfair biases
+         towards certain demographic groups or inputs (e.g., in facial
+         recognition, hiring algorithms).
+       * Example PS: "A Fairness Analysis of Generative Adversarial
+         Networks for Synthetic Face Generation across Demographic
+         Subgroups."
+   * Privacy-Preserving ML:
+       * Focus: How to design or train models in a way that protects
+         the privacy of the training data (e.g., using federated
+         learning, differential privacy).
+       * Example PS: "An Efficiency-Driven Analysis of Federated
+         Learning Architectures for Collaborative Object Detection
+         without Data Sharing."
+   * Causal Inference Analysis:
+       * Focus: Moving beyond correlation to understand true
+         cause-and-effect relationships within model behavior or data
+         generation processes.
+       * Example PS: "Causal Analysis of Contextual Features in Vision
+         Transformers on Scene Graph Generation."
+
+
+ Examples of Architectural Components/Philosophies:
+       * Feature Pyramid Networks (FPNs): For multi-scale object
+         handling.
+       * Skip Connections: For preserving fine spatial detail or
+         fusing information.
+       * Attention Mechanisms: For selectively focusing on important
+         features.
+       * Residual Blocks/Connections: For deep network training and
+         feature learning.
+       * Deformable Convolutions: For adapting to geometric
+         variations.
+       * Encoder-Decoder Designs: Different arrangements of
+         downsampling/upsampling.
+       * Specialized Heads: For output prediction (e.g., detection
+         heads, mask heads, keypoint heatmaps).
+       * Different Backbones: ResNet, MobileNet, Vision Transformers
+         (as encoders).
+

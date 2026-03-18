@@ -1,0 +1,878 @@
+DETAILED ANALYSIS OF ALL 6 PS
+
+PS_1: Architecture-Driven Trade-offs in Semantic Segmentation: Boundary Precision vs Region Accuracy under Real-World Degradations (on point cloud ?)
+SECTION 1: Research Framing
+Field: Semantic Segmentation (2D Dense Prediction)
+Main Lens: Architecture comparison
+Supporting Lenses: Robustness analysis + Data-centric error analysis
+Degradations:
+	•	Geometric: Gaussian blur (motion/defocus), resolution downscaling
+	•	Noise: Gaussian noise (sensor noise), salt-and-pepper noise
+	•	Combined: Blur + noise (realistic camera conditions)
+Key Research Questions:
+	•	Do skip connections preserve boundary precision at the cost of region consistency?
+	•	Does multi-scale context aggregation maintain semantic coherence in regions but blur boundaries?
+	•	How do these trade-offs manifest differently across degradation types?
+	•	Which architectural choices create inherent robustness vs learned robustness?
+Hypothesis:
+	•	Skip connections = high spatial detail retention → better boundaries, but more sensitive to noise propagation → worse regions under noise
+	•	Dilated convolutions = large receptive fields → better semantic consistency in regions, but lose fine spatial detail → worse boundaries under blur
+
+SECTION 2: Technical Implementation Details
+MODELS (Architectural Families)
+Model 1: U-Net with ResNet-50 Encoder
+	•	Architecture philosophy: Strong encoder-decoder with symmetric skip connections
+	•	Key components: 
+	•	ResNet-50 encoder (pretrained on ImageNet)
+	•	4 skip connections (conv1, layer1, layer2, layer3 → decoder blocks)
+	•	Decoder: Upsampling (bilinear/transposed conv) + concatenation with skip features
+	•	Final layer: 1x1 conv to num_classes
+	•	Inductive bias: Spatial detail preservation, local feature propagation
+	•	What you can vary: 
+	•	Skip connection strength (multiply skip features by learnable weight)
+	•	Number of skip connections (ablation: use only 2 skips vs all 4)
+	•	Decoder depth (shallow vs deep decoder)
+	•	Upsampling method (bilinear vs transposed conv)
+Model 2: DeepLabV3+ with ResNet-50 Backbone
+	•	Architecture philosophy: Context-heavy, multi-scale feature aggregation
+	•	Key components: 
+	•	ResNet-50 backbone (modified with atrous/dilated convolutions)
+	•	ASPP (Atrous Spatial Pyramid Pooling): parallel dilated convs at rates [6, 12, 18] + global pooling
+	•	Decoder: 1x upsampling + low-level feature fusion + 4x upsampling
+	•	Output stride: 16 (controls how much spatial resolution is lost)
+	•	Inductive bias: Semantic consistency, multi-scale context
+	•	What you can vary: 
+	•	ASPP dilation rates (e.g., [6,12,18] vs [3,6,9] for smaller receptive fields)
+	•	Output stride (8 vs 16 — controls resolution vs speed trade-off)
+	•	Decoder complexity (simple vs with skip from low-level features)
+	•	Backbone depth (ResNet-50 vs ResNet-101)
+Model 3: Lightweight — BiSeNet-V2 or DDRNet-23-Slim
+	•	Architecture philosophy: Efficiency-biased, real-time inference
+	•	Key components (BiSeNet-V2): 
+	•	Dual-path: Detail Branch (high-res, shallow) + Semantic Branch (low-res, deep)
+	•	Bilateral Aggregation Layer: Fuses detail and semantic features
+	•	Lightweight backbone: Custom efficient blocks (not ResNet)
+	•	Key components (DDRNet): 
+	•	Dual-resolution network: High-res and low-res streams in parallel
+	•	Bilateral fusion at multiple stages
+	•	Deep aggregation pyramid pooling
+	•	Inductive bias: Speed-accuracy trade-off, less redundancy
+	•	What you can vary: 
+	•	Branch depth (Detail vs Semantic branch capacity)
+	•	Fusion method (how detail and semantic features combine)
+	•	Backbone choice (MobileNetV2 vs ShuffleNetV2 vs custom)
+DATASETS
+Primary Choice: Cityscapes
+	•	Why: Urban driving scenes, 19 classes, high-quality labels, standard benchmark
+	•	Splits: 2975 train, 500 val, 1525 test (use train+val for training, test for eval if labels available, else use val)
+	•	Resolution: 2048x1024 (downsample to 1024x512 or 512x256 for efficiency)
+	•	Classes: Road, sidewalk, building, wall, fence, pole, traffic light, person, car, etc.
+	•	Degradation protocol: 
+	•	Train: Clean data only
+	•	Eval: Clean + 4 degradation levels per type (mild, moderate, strong, severe)
+	•	Blur: Gaussian kernel σ = [1, 2, 4, 6]
+	•	Noise: Gaussian std = [10, 20, 40, 60] (0-255 scale)
+	•	Resolution: Downsample factors = [2x, 4x, 8x, 16x] then upsample back
+Alternative: BDD100K
+	•	Why: Diverse weather/lighting (day, night, rain, fog), 10 classes
+	•	Size: 70K train, 10K val
+	•	Benefit: Natural degradations (rain/fog) already in dataset — can test generalization to real degradations
+	•	Use case: If you want to add "real degradation" comparison to synthetic degradations
+Backup: KITTI (if autonomous driving focus)
+	•	Smaller dataset: ~200 annotated images
+	•	Use case: Fine-grained analysis on smaller, cleaner dataset
+	•	Limitation: Too small for full training — use pretrained models only
+ARCHITECTURAL COMPONENTS TO VARY (Ablation Studies)
+1. Skip Connections (U-Net focus):
+	•	Baseline: All 4 skip connections
+	•	Ablation 1: No skips (pure encoder-decoder)
+	•	Ablation 2: Only shallow skips (conv1, layer1)
+	•	Ablation 3: Only deep skips (layer2, layer3)
+	•	Discovery: Which encoder depth contributes most to boundary preservation?
+2. Multi-Scale Context (DeepLab focus):
+	•	Baseline: ASPP with rates [6, 12, 18]
+	•	Ablation 1: Single scale (no ASPP, just 3x3 conv)
+	•	Ablation 2: Reduced ASPP rates [3, 6, 9] (smaller receptive fields)
+	•	Ablation 3: Aggressive ASPP [12, 24, 36] (larger receptive fields)
+	•	Discovery: Does more context help or hurt under different degradations?
+3. Decoder Depth:
+	•	Shallow decoder: 1-2 upsampling stages
+	•	Deep decoder: 4+ upsampling stages with residual connections
+	•	Discovery: Does decoder complexity affect robustness?
+4. Normalization Layers:
+	•	Batch Norm (standard)
+	•	Group Norm (less batch-dependent)
+	•	Instance Norm (more invariant to style/lighting)
+	•	Discovery: Does normalization choice affect photometric robustness? (relevant if combining PS_1+PS_2)
+METRICS (What You Measure)
+Standard Metrics:
+	•	Mean IoU (mIoU): Overall segmentation quality
+	•	Per-class IoU: Which classes degrade most (small objects vs large regions)?
+	•	Pixel Accuracy: Simple correctness measure
+Boundary-Specific Metrics (YOUR NOVELTY): 4. Boundary F1 Score:
+	•	Compute boundaries from ground truth masks (edge detection)
+	•	Compute boundaries from predicted masks
+	•	Measure precision/recall within distance threshold (e.g., 2-5 pixels)
+	•	F1 = 2 * (precision * recall) / (precision + recall)
+	•	Trimap IoU: 
+	•	Divide image into 3 regions: interior (far from boundaries), boundary (near edges), exterior
+	•	Compute IoU separately for boundary region
+	•	Shows if model is failing at edges specifically
+Region-Specific Metrics: 6. Interior IoU:
+	•	Mask out boundary regions (e.g., 10-pixel band around edges)
+	•	Compute IoU only on interior pixels
+	•	Shows semantic consistency within objects
+Degradation Robustness Metrics: 7. Relative mIoU Drop:
+	•	(mIoU_clean - mIoU_degraded) / mIoU_clean
+	•	Measures fragility
+	•	Degradation Resilience Score: 
+	•	Area under curve when plotting mIoU vs degradation severity
+	•	Higher = more robust across all degradation levels
+WHAT YOU COMPARE BETWEEN MODELS
+Quantitative Comparisons:
+	•	Overall robustness: mIoU drop across all degradations
+	•	Boundary preservation: Boundary F1 under blur (skip connections should win)
+	•	Region consistency: Interior IoU under noise (multi-scale context should win)
+	•	Small object handling: Per-class IoU for small classes (pole, traffic light) — which architecture preserves these?
+	•	Class-specific failure modes: Which classes degrade most per architecture?
+Qualitative Analysis (Visual Inspection):
+	•	Boundary bleeding: Do edges become fuzzy? (U-Net should be sharper)
+	•	Region fragmentation: Do large objects break into pieces? (DeepLab should avoid this)
+	•	Small object disappearance: Do traffic lights vanish under blur?
+	•	Noise propagation: Do noisy artifacts appear in flat regions (roads)? (Skip connections propagate this)
+Ablation Insights:
+	•	Skip connection ablation: Plot boundary F1 vs number of skips
+	•	ASPP ablation: Plot region IoU vs receptive field size
+	•	Efficiency analysis: Plot mIoU vs FLOPs for lightweight models
+
+PS_2: Photometric Robustness in CNN-Based Semantic Segmentation: How Architectural Choices Handle Lighting and Colour Distribution Shifts
+SECTION 1: Research Framing
+Field: Semantic Segmentation
+Main Lens: Architecture comparison
+Supporting Lens: Robustness to photometric degradations
+Degradations:
+	•	Lighting intensity: Overexposure (gamma > 1), underexposure (gamma < 1)
+	•	Day/Night: Extreme brightness reduction + color temperature shift
+	•	Shadows: Local darkening (simulate cast shadows)
+	•	Color shifts: Temperature (warm/cool), tint (green/magenta cast)
+Key Research Questions:
+	•	Which architectures learn lighting-invariant features vs memorizing pixel intensities?
+	•	Do skip connections propagate photometric bias from early (color-sensitive) layers?
+	•	Does deep encoder abstraction naturally create lighting invariance?
+	•	How do normalization layers (BN, GN, IN) affect photometric robustness?
+Hypothesis:
+	•	Shallow skip connections propagate raw RGB values → sensitive to lighting
+	•	Deep encoders learn semantic features (edges, textures) → more lighting-invariant
+	•	Instance Normalization should help more than Batch Norm for lighting shifts
+
+SECTION 2: Technical Implementation
+MODELS (Same as PS_1 but with normalization variants)
+Model 1: U-Net + ResNet-50 (Baseline with Batch Norm)
+Model 1b: U-Net + ResNet-50 (Instance Norm variant)
+	•	Replace all Batch Norm layers with Instance Norm
+	•	Why: Instance Norm normalizes per-sample, per-channel → more style-invariant
+	•	Hypothesis: Should be more robust to lighting changes
+Model 2: DeepLabV3+ (Batch Norm baseline)
+Model 2b: DeepLabV3+ (Group Norm variant)
+	•	Replace Batch Norm with Group Norm (num_groups=32)
+	•	Why: Group Norm is batch-size independent, might generalize better
+Model 3: Lightweight (BiSeNet-V2)
+DATASETS
+Primary: BDD100K
+	•	Why: Has natural day/night splits, diverse lighting conditions
+	•	Classes: 10 classes (road, car, person, traffic sign, etc.)
+	•	Natural degradations: Already contains day/night/dawn/dusk images
+	•	Degradation protocol: 
+	•	Train: Daytime images only (clean, well-lit)
+	•	Test: Day (clean), Night (natural), plus synthetic degradations on day images
+Secondary: Cityscapes
+	•	Use for synthetic degradations (no natural night images)
+	•	Apply photometric transforms to create controlled experiments
+Tertiary: Dark Zurich
+	•	Nighttime dataset: Paired day-night images of Zurich
+	•	Use case: Test extreme low-light generalization
+	•	Size: Small (2,416 day, 2,920 night unlabeled, 201 night labeled)
+	•	Limitation: Small labeled set, use for qualitative analysis only
+PHOTOMETRIC DEGRADATIONS (How to Generate)
+1. Global Illumination Changes:
+# Gamma correction (controls overall brightness)
+degraded = np.power(image / 255.0, gamma) * 255.0
+# gamma > 1: darker (underexposure)
+# gamma < 1: brighter (overexposure)
+# Levels: gamma = [0.4, 0.6, 1.5, 2.0]
+2. Color Temperature Shifts:
+# Warm (orange/yellow cast) — simulate sunset
+image[:,:,0] *= 1.2  # increase red
+image[:,:,2] *= 0.8  # decrease blue
+
+# Cool (blue cast) — simulate overcast
+image[:,:,0] *= 0.8  # decrease red
+image[:,:,2] *= 1.2  # increase blue
+3. Simulated Shadows:
+# Create local darkening masks
+# Apply multiplicative factor < 1 to random regions
+# Simulate cast shadows from buildings/trees
+4. Day-to-Night Simulation:
+# Severe underexposure + blue color shift
+night_image = np.power(image / 255.0, 2.5) * 255.0  # darken
+night_image[:,:,2] *= 1.3  # add blue tint
+# Add noise (low-light sensor noise)
+ARCHITECTURAL COMPONENTS TO VARY
+1. Normalization Layer Type:
+	•	Batch Norm: Standard, batch-dependent
+	•	Instance Norm: Per-sample normalization, style-invariant
+	•	Group Norm: Hybrid, batch-independent
+	•	Layer Norm: Full channel normalization
+	•	Experiment: Train 4 variants of U-Net (BN, IN, GN, LN) and compare photometric robustness
+2. Skip Connection Depth (Same as PS_1):
+	•	Hypothesis: Shallow skips (conv1) propagate RGB → lighting-sensitive
+	•	Deep skips (layer3) propagate semantic features → more invariant
+3. Color Space:
+	•	Baseline: RGB input
+	•	Variant: Convert to LAB or HSV before feeding to network
+	•	Why: LAB separates luminance (L) from color (a, b) → might be more invariant
+	•	Experiment: Train U-Net on LAB vs RGB, test lighting robustness
+METRICS
+Standard:
+	•	mIoU on clean data
+	•	mIoU on each photometric degradation
+Lighting-Specific:
+	•	Photometric Robustness Score:
+	•	Average mIoU across all lighting conditions
+	•	Higher = more lighting-invariant
+	•	Class-wise Lighting Sensitivity:
+	•	Which classes fail most under low-light? (pedestrians, signs)
+	•	Which are robust? (road, sky)
+	•	Boundary Stability Under Lighting:
+	•	Does boundary F1 drop more under shadows than global darkening?
+	•	Shadows create local contrast changes → edges might be more affected
+Visualization:
+	•	Activation maps: Visualize early vs late layer features under lighting changes
+	•	Do early layers respond to brightness? Do late layers ignore it?
+WHAT YOU COMPARE
+	•	Normalization impact: BN vs IN vs GN under lighting shifts
+	•	Architecture impact: U-Net vs DeepLab photometric robustness
+	•	Skip connection depth: Shallow vs deep skip sensitivity to lighting
+	•	Natural vs synthetic: How do models trained on day images perform on real night images (BDD100K) vs synthetic night (Cityscapes)?
+
+PS_1+PS_2 COMBINED VERSION
+Title: "Architecture-Driven Robustness in Semantic Segmentation: Boundary-Region Trade-offs Under Geometric and Photometric Degradations"
+What changes:
+	•	Same models, same datasets
+	•	Degradation matrix: 2 categories × 4 levels each = 8 test conditions 
+	•	Geometric: Blur, noise, resolution, blur+noise
+	•	Photometric: Underexposure, overexposure, shadows, day→night
+	•	Analysis: Do architectural trade-offs generalize across degradation types? 
+	•	E.g., "Skip connections preserve boundaries under blur AND lighting changes"
+	•	OR: "Skip connections robust to geometric but fragile to photometric"
+Benefit: Richer, more complete analysis without doubling implementation effort
+
+PS_3: Geometric Perception Under Photometric Stress: Surface Normal Estimation Robustness to Lighting Variation Across CNN Architectures
+SECTION 1: Research Framing
+Field: Surface Normal Estimation (3D Low-Level Vision)
+Main Lens: Architecture comparison
+Supporting Lens: Robustness to photometric variation
+Task: Given single RGB image → predict 3D surface orientation at each pixel (normal vector in camera coordinates)
+Degradations:
+	•	Shadows (local lighting changes)
+	•	Overexposure (loss of texture detail)
+	•	Underexposure (loss of geometric cues)
+	•	Color temperature shifts (warm/cool lighting)
+Key Research Questions:
+	•	Which architectures disentangle 3D geometry from 2D lighting/appearance?
+	•	Do skip connections help (preserve geometric detail) or hurt (propagate photometric noise)?
+	•	How do boundary normals (edges, discontinuities) degrade vs planar normals (flat surfaces)?
+	•	Can deep encoders learn lighting-invariant geometric features?
+Hypothesis:
+	•	Deep encoders (ResNet-101) learn shape-from-shading that's lighting-invariant
+	•	Skip connections propagate pixel-level lighting info → hurt under shadows
+	•	Planar surfaces (walls, floors) maintain normals under lighting changes
+	•	Edges/discontinuities (corners, object boundaries) fail when shadows obscure depth cues
+
+SECTION 2: Technical Implementation
+MODELS
+Model 1: U-Net with ResNet-50 Encoder
+	•	Architecture: 
+	•	ResNet-50 encoder (pretrained on ImageNet)
+	•	4 skip connections
+	•	Decoder with upsampling
+	•	Output: 3-channel (Nx, Ny, Nz normal components)
+	•	Output activation: L2 normalization (ensure unit vectors)
+	•	Loss function: Cosine similarity loss or L1 loss on normalized vectors
+Model 2: ResNet Encoder-Decoder (No Skips)
+	•	Same encoder, but pure encoder-decoder (no skip connections)
+	•	Hypothesis: Less sensitive to lighting because no raw pixel propagation
+	•	Trade-off: Might lose fine geometric detail (edges)
+Model 3: Lightweight — MobileNetV2 Encoder + Decoder
+	•	Efficient architecture
+	•	Hypothesis: Lower capacity → might fail at complex geometry under lighting stress
+Model 4 (Optional): DPT (Dense Prediction Transformer)
+	•	Transformer-based (Vision Transformer encoder)
+	•	Hypothesis: Global context via self-attention → more lighting-invariant
+	•	Trade-off: Heavier, slower, but might be more robust
+DATASETS
+Primary: NYUv2 (Indoor Scenes)
+	•	Size: 1,449 RGB-D images (795 train, 654 test)
+	•	Ground truth: Depth maps (can compute normals from depth)
+	•	Scenes: Indoor rooms (furniture, walls, floors)
+	•	Why: Standard benchmark, diverse geometry, controlled lighting
+	•	Limitation: Limited lighting variation (mostly indoor lighting)
+Secondary: ScanNet
+	•	Size: Larger (1,513 scenes, ~2.5M frames)
+	•	Ground truth: 3D reconstructions → compute normals
+	•	Benefit: More data, diverse indoor environments
+	•	Limitation: Requires preprocessing to extract normals
+Tertiary: DIODE (Dense Indoor/Outdoor DEpth)
+	•	Size: 8,574 indoor, 16,884 outdoor images
+	•	Ground truth: Laser-scanned depth
+	•	Benefit: Indoor + outdoor, more diverse lighting
+	•	Use case: Test generalization to outdoor lighting
+Degradation Protocol:
+	•	Train: Clean images from NYUv2/ScanNet
+	•	Test: Apply photometric degradations (same as PS_2: gamma, shadows, color shifts)
+	•	Real degradation test: If DIODE has outdoor images, test on those (natural sunlight variation)
+NORMAL COMPUTATION FROM DEPTH (If Using Depth Datasets)
+# Given depth map D
+# Compute 3D point cloud
+# Compute normals via cross product of local gradients
+# Example:
+dz_dx = depth[y, x+1] - depth[y, x]
+dz_dy = depth[y+1, x] - depth[y, x]
+normal = normalize([-dz_dx, -dz_dy, 1])
+Alternatively: Use pre-computed normal annotations if available (some datasets provide them)
+ARCHITECTURAL COMPONENTS TO VARY
+1. Skip Connection Strategy:
+	•	Baseline: All 4 skips (U-Net)
+	•	Ablation: No skips (pure encoder-decoder)
+	•	Ablation: Only deep skips (layer3, layer4)
+	•	Discovery: Do shallow skips propagate lighting noise?
+2. Encoder Depth:
+	•	ResNet-50 (baseline)
+	•	ResNet-101 (deeper, more semantic features)
+	•	ResNet-18 (shallower, more pixel-level features)
+	•	Discovery: Does encoder depth correlate with lighting invariance?
+3. Loss Function:
+	•	Cosine similarity: 1 - cos(predicted, ground_truth)
+	•	L1 loss: |predicted - ground_truth|
+	•	Angular loss: arccos(dot(predicted, ground_truth))
+	•	Discovery: Does loss function choice affect robustness?
+4. Multi-Task Learning (Advanced):
+	•	Jointly predict normals + depth
+	•	Hypothesis: Depth provides geometric constraint, might improve lighting robustness
+	•	Trade-off: More complex, but could be interesting
+METRICS
+Standard Normal Estimation Metrics:
+	•	Mean Angular Error:
+	•	mean(arccos(dot(predicted_normal, gt_normal)))
+	•	Measures average angle deviation (degrees)
+	•	Lower is better
+	•	Median Angular Error:
+	•	Robust to outliers
+	•	Percentage of Pixels < Threshold:
+	•	% pixels with angular error < 11.25°, 22.5°, 30°
+	•	Shows distribution of errors
+Geometry-Specific Metrics (YOUR NOVELTY): 4. Planar vs Edge Normal Error:
+	•	Detect planar regions (low depth gradient)
+	•	Detect edges (high depth gradient or normal discontinuities)
+	•	Compute angular error separately for each
+	•	Discovery: Edges degrade more under shadows
+	•	Normal Discontinuity Preservation:
+	•	Measure how well object boundaries are preserved
+	•	Similar to boundary F1 but for normals
+	•	Lighting Sensitivity Score:
+	•	Angular error increase under lighting change
+	•	(Error_degraded - Error_clean) / Error_clean
+WHAT YOU COMPARE
+Quantitative:
+	•	Mean/median angular error across lighting conditions
+	•	Planar vs edge error under shadows (skip connections should show bigger gap)
+	•	Encoder depth vs lighting robustness correlation
+	•	Skip vs no-skip normal quality at boundaries
+Qualitative (Visual Analysis):
+	•	Normal maps: Visualize RGB-encoded normals (R=X, G=Y, B=Z)
+	•	Failure modes: 
+	•	Planar surfaces: Do walls maintain orientation under shadows?
+	•	Curved surfaces: Do smooth curves become faceted?
+	•	Edges: Do corners become rounded or disappear?
+	•	Attention/activation maps: Where does the network "look" to infer geometry?
+Ablation Studies:
+	•	Skip connection depth vs lighting robustness
+	•	Encoder capacity (ResNet-18 vs 50 vs 101) vs photometric invariance
+	•	Loss function choice impact
+
+PS_4: Attention Under Adversity: How Salient Object Detection Architectures Respond to Visual Clutter and Image Quality Degradation
+SECTION 1: Research Framing
+Field: Salient Object Detection
+Main Lens: Architecture comparison (attention mechanisms)
+Supporting Lenses: Robustness to scene complexity + image quality degradation
+Task: Given RGB image → binary/continuous saliency map (highlight most attention-grabbing object)
+Two Experimental Variables:
+	•	Scene complexity: Simple (single object, plain background) vs Cluttered (multiple objects, textured background)
+	•	Image quality: Clean vs Degraded (blur, noise, low resolution)
+Key Research Questions:
+	•	Does explicit attention help or hurt in cluttered scenes?
+	•	Do attention mechanisms focus on wrong objects in clutter (false positives)?
+	•	Does multi-scale fusion provide robustness by averaging out distractions?
+	•	How does degradation interact with clutter? (Double stress test)
+Hypothesis:
+	•	Attention = precise in simple scenes, distracted in clutter
+	•	Multi-scale fusion = robust in clutter (averages features), but less precise
+	•	Degradation + clutter = catastrophic for attention (confusion amplified)
+
+SECTION 2: Technical Implementation
+MODELS
+Model 1: BASNet (Boundary-Aware Salient Object Detection)
+	•	Architecture: 
+	•	Encoder: ResNet-like with residual blocks
+	•	Decoder: Refinement module with residual connections
+	•	Attention: Hybrid attention module (channel + spatial attention)
+	•	Multi-scale supervision (deep supervision at multiple decoder stages)
+	•	Inductive bias: Explicit attention for focus, boundary refinement
+Model 2: U²-Net (U-Net with U-blocks)
+	•	Architecture: 
+	•	Nested U-Net structure (U-Net inside U-Net)
+	•	Each encoder/decoder block is itself a mini U-Net
+	•	Attention: Implicit (via nested architecture, captures multi-scale)
+	•	Inductive bias: Deep multi-scale feature extraction without explicit attention
+Model 3: PoolNet (Pooling-Based Multi-Scale Fusion)
+	•	Architecture: 
+	•	ResNet-50 backbone
+	•	Global Guidance Module (GGM): Pooling-based global context
+	•	Feature Aggregation Module (FAM): Multi-scale fusion via pooling
+	•	No explicit attention: Uses pooling for implicit context
+	•	Inductive bias: Multi-scale averaging, robust but less precise
+Model 4 (Lightweight): MobileNet-based Saliency
+	•	Custom lightweight architecture
+	•	Inductive bias: Efficiency over accuracy
+DATASETS
+Primary: DUTS (Densely Annotated UTah Saliency)
+	•	Size: 10,553 train, 5,019 test
+	•	Ground truth: Pixel-level saliency masks
+	•	Scene diversity: Indoor/outdoor, simple/complex
+	•	Why: Large, standard benchmark, diverse complexity
+Secondary: DUT-OMRON
+	•	Size: 5,168 images
+	•	Characteristics: Specifically contains cluttered scenes with multiple salient objects
+	•	Use case: Test clutter robustness
+Tertiary: ECSSD (Extended Complex Scene Saliency Dataset)
+	•	Size: 1,000 images
+	•	Characteristics: Complex scenes, multiple objects
+	•	Use case: Another clutter test set
+Scene Complexity Protocol:
+	•	Simple: Filter images with <3 objects, clean backgrounds (manual or automatic filtering)
+	•	Cluttered: Images with 5+ objects, textured backgrounds
+	•	OR: Use DUT-OMRON (naturally cluttered) vs ECSSD simple subset
+Degradation Protocol:
+	•	Same as PS_1: Blur, noise, resolution loss
+	•	Apply to both simple and cluttered scenes
+	•	Creates 2x4 = 8 test conditions (2 complexity × 4 degradations)
+ARCHITECTURAL COMPONENTS TO VARY
+1. Attention Mechanism Type:
+	•	Channel attention: Squeeze-and-Excitation (SE) blocks
+	•	Spatial attention: Convolutional attention maps
+	•	Hybrid: Channel + spatial (CBAM-style)
+	•	Ablation: Remove attention modules from BASNet, see impact
+2. Multi-Scale Fusion Strategy:
+	•	Simple concatenation: Stack features from different scales
+	•	Weighted fusion: Learn fusion weights
+	•	Pyramid pooling: Use pooling (PoolNet style)
+	•	Ablation: Single-scale vs multi-scale prediction
+3. Decoder Complexity:
+	•	Shallow decoder (1-2 stages)
+	•	Deep decoder (4+ stages with refinement)
+	•	Discovery: Does refinement help in clutter?
+4. Global Context Module:
+	•	Global average pooling
+	•	Non-local attention (self-attention across spatial locations)
+	•	Pyramid pooling (multi-scale global context)
+	•	Discovery: Does global context reduce clutter distraction?
+METRICS
+Standard Saliency Metrics:
+	•	F-measure (Max F-score): 
+	•	Precision-recall trade-off
+	•	Higher = better boundary precision and region completeness
+	•	MAE (Mean Absolute Error): 
+	•	Pixel-wise error between predicted and ground truth
+	•	Lower = better
+	•	S-measure (Structure Similarity): 
+	•	Considers structural similarity (object-level and region-level)
+	•	E-measure (Enhanced Alignment): 
+	•	Combines local and global alignment
+Clutter-Specific Metrics (YOUR NOVELTY): 5. False Positive Rate in Clutter:
+	•	How many background objects are incorrectly highlighted?
+	•	Compute FP specifically in cluttered regions
+	•	Object Separation Quality: 
+	•	Can the model isolate the most salient object from distractors?
+	•	Measure IoU of most salient object only
+	•	Attention Consistency: 
+	•	For attention-based models: Visualize attention maps
+	•	Measure attention entropy (low = focused, high = scattered)
+	•	Discovery: Attention becomes diffuse in clutter
+Degradation-Clutter Interaction: 8. Clutter Amplification Score:
+	•	(Error_cluttered_degraded - Error_simple_degraded) - (Error_cluttered_clean - Error_simple_clean)
+	•	Measures if degradation hurts more in clutter
+	•	Discovery: Attention models show higher amplification
+WHAT YOU COMPARE
+Quantitative:
+	•	Attention vs Multi-scale: BASNet (attention) vs PoolNet (pooling) in clutter
+	•	Simple vs Cluttered: F-score drop in cluttered scenes per architecture
+	•	Degradation impact: Which models are most robust to blur/noise?
+	•	Interaction effect: Does clutter + degradation double the error, or more?
+Qualitative (Visual Analysis):
+	•	Attention maps: Where does BASNet focus in clutter? (Visualize attention heatmaps)
+	•	Failure modes: 
+	•	False positives: Background objects incorrectly highlighted
+	•	False negatives: Salient object missed in clutter
+	•	Boundary errors: Object edges blurred in degraded images
+	•	Saliency map evolution: How does predicted saliency change from simple → cluttered → degraded?
+Ablation Studies:
+	•	Remove attention from BASNet → measure precision loss
+	•	Single-scale vs multi-scale in PoolNet → measure robustness
+	•	Decoder refinement stages → how many are needed for clutter?
+
+PS_5: Monocular Depth Estimation Under Adverse Conditions: Architecture Robustness to Weather and Low-Light Degradations
+SECTION 1: Research Framing
+Field: Monocular Depth Estimation (3D Vision)
+Main Lens: Architecture comparison (CNN vs Transformer)
+Supporting Lens: Robustness to weather and lighting
+Task: Single RGB image → depth map (distance from camera to each pixel)
+Degradations:
+	•	Weather: Rain, fog, snow (occlusion-based)
+	•	Lighting: Nighttime, low-light, extreme shadows
+Key Research Questions:
+	•	Do transformers' global attention make them more robust to local occlusions (rain/fog)?
+	•	Do CNNs' local receptive fields fail when occluded patches are nearby?
+	•	How do skip connections propagate noise/occlusion errors in depth estimation?
+	•	Which architectures maintain geometric consistency (depth edges align with image edges) under degradation?
+Hypothesis:
+	•	Transformers robust to fog/rain (global context averages out occlusions)
+	•	CNNs fail under local occlusions (limited receptive field)
+	•	Skip connections hurt under low-light (propagate dark/noisy pixels)
+	•	Depth edges (discontinuities) degrade more than smooth depth regions
+
+SECTION 2: Technical Implementation
+MODELS
+Model 1: MiDaS (Mixed Data Sampling) — CNN-based
+	•	Architecture: 
+	•	Encoder: ResNet-101 or EfficientNet
+	•	Decoder: Feature pyramid-style with skip connections
+	•	Multi-scale features aggregated
+	•	Inductive bias: Local features, strong skip connections
+	•	Pretrained: Available on HuggingFace
+Model 2: DPT (Dense Prediction Transformer)
+	•	Architecture: 
+	•	Encoder: Vision Transformer (ViT-Base or ViT-Large)
+	•	Decoder: Reassemble + Fusion modules
+	•	No skip connections (transformer encoder is not hierarchical like CNNs)
+	•	Inductive bias: Global self-attention, long-range dependencies
+	•	Pretrained: Available on HuggingFace
+Model 3: DepthAnything (Recent SOTA)
+	•	Architecture: 
+	•	Encoder: Vision Transformer (DINOv2-based)
+	•	Decoder: DPT-style
+	•	Trained on massive diverse data
+	•	Inductive bias: Strong generalization, global attention
+	•	Pretrained: HuggingFace
+Model 4 (Hybrid): BEiT-Adapter or similar
+	•	Combines transformer encoder with CNN-style decoder
+	•	Discovery: Does this combine benefits of both?
+DATASETS
+Primary: KITTI (Autonomous Driving)
+	•	Size: ~43K images with LiDAR depth
+	•	Scenes: Urban driving, outdoor
+	•	Limitation: Mostly daytime, clean weather
+	•	Use case: Baseline clean performance + synthetic degradations
+Secondary: nuScenes
+	•	Size: 1.4M camera images, 390K LiDAR sweeps
+	•	Benefit: Includes rain and night scenes (natural degradations)
+	•	Use case: Test on real rain/night, not just synthetic
+Tertiary: Oxford RobotCar
+	•	Size: 1,000 km of driving data
+	•	Benefit: Diverse weather (rain, fog, snow), day/night
+	•	Use case: Real weather robustness evaluation
+Quaternary: Dark Zurich
+	•	Size: Nighttime urban scenes
+	•	Use case: Extreme low-light testing
+Degradation Protocol:
+	•	Train: Clean KITTI images
+	•	Test: 
+	•	Clean KITTI (baseline)
+	•	Synthetic degradations on KITTI (controlled)
+	•	Real degradations: nuScenes rain/night, RobotCar weather
+WEATHER/LIGHTING DEGRADATIONS (How to Simulate)
+1. Rain Simulation:
+# Raindrop occlusion model
+# Add semi-transparent streaks (rain streaks)
+# Reduce visibility (atmospheric scattering)
+# Libraries: Rainlib, manual implementation
+2. Fog Simulation:
+# Atmospheric scattering model
+# I_foggy = I_clear * t + A * (1 - t)
+# where t = transmission map (exp(-beta * depth))
+# A = atmospheric light (white/gray)
+# Result: Distance objects fade to white
+3. Nighttime Simulation:
+# Severe underexposure + noise
+# Reduce brightness (gamma > 2)
+# Add sensor noise (Gaussian, higher std)
+# Optional: Add artificial lighting (streetlights, headlights)
+4. Low-Light (Dusk/Dawn):
+# Moderate underexposure (gamma = 1.5-2)
+# Color temperature shift (warm or cool)
+Datasets with Real Degradations:
+	•	nuScenes: Filter for rain/night scenes
+	•	RobotCar: Has dedicated rain/fog sequences
+ARCHITECTURAL COMPONENTS TO VARY
+1. Encoder Type (Main Comparison):
+	•	CNN (ResNet, EfficientNet): Local receptive fields
+	•	Transformer (ViT): Global self-attention
+	•	Hybrid: Mix of both
+	•	Discovery: Transformer vs CNN robustness to occlusion/lighting
+2. Skip Connection Strategy (CNN models only):
+	•	MiDaS has skips
+	•	DPT has no skips (transformer architecture doesn't have hierarchical feature maps like CNNs)
+	•	Ablation: Remove skips from MiDaS, measure impact
+3. Multi-Scale Feature Aggregation:
+	•	MiDaS: Feature pyramid
+	•	DPT: Reassemble tokens at multiple resolutions
+	•	Discovery: Does multi-scale help under occlusion?
+4. Depth Range:
+	•	Near vs far depth robustness
+	•	Hypothesis: Fog affects far depth more (depth compression)
+METRICS
+Standard Depth Metrics:
+	•	Absolute Relative Error (AbsRel): 
+	•	mean(|d_pred - d_gt| / d_gt)
+	•	Lower = better
+	•	Root Mean Squared Error (RMSE): 
+	•	sqrt(mean((d_pred - d_gt)^2))
+	•	Threshold Accuracy (δ < 1.25): 
+	•	% of pixels where max(d_pred/d_gt, d_gt/d_pred) < 1.25
+	•	Higher = better
+	•	δ < 1.25², δ < 1.25³: Looser thresholds
+Geometric Consistency Metrics (YOUR NOVELTY): 5. Depth Edge Alignment:
+	•	Compute depth discontinuities (edges in depth map)
+	•	Compute image edges (Canny on RGB)
+	•	Measure alignment (precision/recall of depth edges vs image edges)
+	•	Discovery: Skip connections might preserve edges, but propagate noise under low-light
+	•	Near vs Far Depth Error:
+	•	Separate error computation for near (<10m) vs far (>10m)
+	•	Discovery: Fog compresses far depth (everything looks equally far)
+	•	Occlusion Region Error:
+	•	For rain/fog: Manually or automatically mark occluded regions
+	•	Compute error specifically in those regions
+	•	Discovery: Transformers fill in occluded regions better (global context)
+Weather-Specific Metrics: 8. Depth Compression Score (Fog):
+	•	Measure depth range: max_depth - min_depth
+	•	Fog should reduce this (atmospheric scattering compresses depth)
+	•	Compare architectures: which maintains depth range better?
+	•	Robustness to Local Occlusion (Rain): 
+	•	Measure error variance in rain-occluded patches
+	•	Lower variance = more consistent depth despite occlusion
+WHAT YOU COMPARE
+Quantitative:
+	•	CNN vs Transformer: MiDaS vs DPT on rain/fog/night
+	•	Skip impact: MiDaS with vs without skips under low-light
+	•	Near vs far: Error decomposition by depth range under fog
+	•	Real vs synthetic: Performance gap on nuScenes rain vs synthetic rain
+Qualitative (Visual):
+	•	Depth maps: Visualize predicted depth (grayscale or color-coded)
+	•	Failure modes: 
+	•	Rain: Missing depth in raindrop regions (black holes)
+	•	Fog: Compressed depth (far objects look close)
+	•	Night: Noisy depth in dark regions, smooth in lit regions
+	•	Attention maps (Transformer): Where does DPT attend under occlusion?
+	•	Edge preservation: Do depth discontinuities stay sharp or blur?
+Ablation Studies:
+	•	Encoder size: ViT-Base vs ViT-Large (does capacity help in adverse conditions?)
+	•	Pretraining data: How much does DepthAnything's diverse pretraining help?
+	•	Depth range: Clip far depth (e.g., >80m) and see if fog robustness improves
+
+PS_6: Efficiency-Robustness Trade-offs in Real-Time Semantic Segmentation: How Model Compression Affects Degradation Resilience
+SECTION 1: Research Framing
+Field: Semantic Segmentation (Real-Time / Efficient Models)
+Main Lens: Efficiency trade-offs
+Supporting Lens: Robustness analysis + Architecture comparison
+Two-Axis Analysis:
+	•	X-axis: Efficiency (FLOPs, parameters, inference time, memory)
+	•	Y-axis: Robustness (performance under degradations)
+Key Research Questions:
+	•	Do lightweight models collapse faster under degradations (less redundancy)?
+	•	Is there a "sweet spot" for real-time deployment (good speed + robustness)?
+	•	Which efficient design patterns (depthwise conv, attention, pruning) maintain robustness?
+	•	Can we quantify the efficiency-robustness Pareto frontier?
+Hypothesis:
+	•	Heavy models are more robust (more parameters = more redundancy)
+	•	Lightweight models are fragile (less capacity to handle distribution shift)
+	•	BUT some efficient designs (e.g., efficient attention) might be surprisingly robust
+	•	Trade-off curve: As FLOPs decrease, robustness drops, but non-linearly
+
+SECTION 2: Technical Implementation
+MODELS (Efficiency Spectrum)
+Heavy (Baseline):
+Model 1: DeepLabV3+ (ResNet-101)
+	•	FLOPs: ~400-500 GFLOPs (512x512 input)
+	•	Parameters: ~60M
+	•	Inductive bias: Accuracy-focused, redundant features
+Medium:
+Model 2: U-Net (ResNet-50)
+	•	FLOPs: ~200 GFLOPs
+	•	Parameters: ~35M
+	•	Inductive bias: Balanced
+Lightweight:
+Model 3: BiSeNet-V2
+	•	FLOPs: ~10-20 GFLOPs
+	•	Parameters: ~3-5M
+	•	Architecture: Dual-path (detail + semantic)
+	•	Inductive bias: Efficiency via bilateral aggregation
+Model 4: DDRNet-23-Slim
+	•	FLOPs: ~15-25 GFLOPs
+	•	Parameters: ~5-8M
+	•	Architecture: Dual-resolution streams
+	•	Inductive bias: Parallel high-res + low-res processing
+Ultra-Lightweight:
+Model 5: FastSCNN or ENet
+	•	FLOPs: ~3-5 GFLOPs
+	•	Parameters: <1M
+	•	Inductive bias: Extreme efficiency, aggressive pruning
+Optional Transformer Hybrid:
+Model 6: SegFormer-B0 (Lightweight Transformer)
+	•	FLOPs: ~10 GFLOPs
+	•	Parameters: ~3-4M
+	•	Inductive bias: Efficient transformer with hierarchical features
+DATASETS
+Primary: Cityscapes
+	•	Standard benchmark, allows comparison with literature
+	•	19 classes, urban driving
+Secondary: Camvid
+	•	Smaller: 367 train, 101 val, 233 test
+	•	11 classes: Simpler than Cityscapes
+	•	Use case: Faster experimentation for lightweight models
+Degradation Protocol:
+	•	Same as PS_1: Blur, noise, resolution, (optionally lighting from PS_2)
+	•	Apply 4 severity levels per degradation type
+EFFICIENCY METRICS (X-Axis)
+1. FLOPs (Floating Point Operations):
+	•	Use fvcore or torchinfo to count
+	•	Measure for standard input size (e.g., 512x512)
+	•	No GPU needed: Can compute offline
+2. Parameters:
+	•	sum(p.numel() for p in model.parameters())
+	•	Indicates model size (affects memory, deployment)
+3. Inference Time (Optional, needs GPU):
+	•	Average over 100 inferences
+	•	Measure on same GPU (e.g., RTX 3090 or Colab T4)
+	•	Report FPS (frames per second)
+4. Memory (Optional):
+	•	Peak GPU memory during inference
+	•	Use torch.cuda.max_memory_allocated()
+Note: You can do this paper WITHOUT GPU time measurement (just use FLOPs + params). FPS is nice-to-have but not essential.
+ROBUSTNESS METRICS (Y-Axis)
+Standard:
+	•	mIoU on clean data
+	•	mIoU on degraded data
+Robustness Scores:
+	•	Relative mIoU Drop: 
+	•	(mIoU_clean - mIoU_degraded) / mIoU_clean
+	•	Lower = more robust
+	•	Area Under Curve (AUC): 
+	•	Plot mIoU vs degradation severity
+	•	Integrate → single robustness score
+	•	Resilience Threshold: 
+	•	What degradation level causes 50% mIoU drop?
+	•	Higher = more resilient
+ARCHITECTURAL COMPONENTS TO VARY
+1. Backbone Efficiency:
+	•	ResNet-101 (heavy) vs ResNet-50 vs ResNet-18
+	•	MobileNetV2 vs ShuffleNetV2 (lightweight backbones)
+	•	Discovery: Does backbone depth correlate with robustness?
+2. Depthwise Separable Convolutions (MobileNet-style):
+	•	Standard convolution vs depthwise separable
+	•	Trade-off: Efficiency gain vs robustness loss?
+	•	Ablation: Replace standard convs in U-Net with depthwise separable
+3. Attention Mechanisms in Efficient Models:
+	•	SegFormer uses efficient attention
+	•	Discovery: Does attention add robustness without many FLOPs?
+4. Dual-Path vs Single-Path:
+	•	BiSeNet/DDRNet (dual-path) vs standard encoder-decoder (single-path)
+	•	Discovery: Does dual-path preserve robustness despite being lightweight?
+WHAT YOU COMPARE
+Two-Axis Plots (Main Contribution):
+Plot 1: FLOPs vs Clean mIoU
+	•	Standard accuracy-efficiency trade-off
+	•	Baseline comparison
+Plot 2: FLOPs vs Robustness Score (mIoU drop under degradation)
+	•	THIS IS YOUR NOVELTY
+	•	Shows efficiency-robustness Pareto frontier
+	•	Discovery: Some models are efficient AND robust (e.g., BiSeNet?), others are fragile (ENet?)
+Plot 3: Parameters vs Robustness
+	•	Similar to Plot 2, but using parameter count
+	•	Shows memory-robustness trade-off
+Plot 4: Degradation Severity vs mIoU (per model)
+	•	Separate curves for each model
+	•	Shows how robustness degrades as severity increases
+	•	Discovery: Heavy models maintain performance longer, lightweight models collapse faster
+Heatmap: Efficiency vs Robustness Matrix
+	•	Rows: Models (sorted by FLOPs)
+	•	Columns: Degradation types (blur, noise, resolution)
+	•	Cells: Color-coded robustness score
+	•	Shows: Which degradations hurt efficient models most
+Quantitative Comparisons:
+	•	Best efficiency-robustness ratio: Which model gives best trade-off?
+	•	Degradation-specific fragility: Does noise hurt lightweight models more than blur?
+	•	Class-wise robustness: Do lightweight models lose small objects first (traffic signs)?
+Qualitative Analysis:
+	•	Failure modes: How do lightweight models fail differently? 
+	•	Fragmentation (objects break apart)
+	•	Boundary erosion (edges blur)
+	•	Small object loss (traffic lights disappear)
+	•	Visualize predictions: Side-by-side comparison (heavy vs lightweight under same degradation)
+Ablation Studies:
+	•	Backbone swap: Replace ResNet-101 in DeepLab with ResNet-18 → measure efficiency gain and robustness loss
+	•	Depthwise conv ablation: BiSeNet with standard convs → heavier, more robust?
+	•	Attention ablation: Remove attention from SegFormer → faster, more fragile?
+
+SUMMARY: Your 6 PS Implementation Blueprints
+PS
+Models
+Datasets
+Key Architectural Variations
+Key Metrics
+Discovery
+PS_1
+U-Net, DeepLabV3+, BiSeNet
+Cityscapes, BDD100K
+Skip depth, ASPP rates, decoder complexity
+Boundary F1, Interior IoU, mIoU
+Skip vs context trade-offs under geometric stress
+PS_2
+Same + normalization variants
+BDD100K, Cityscapes, Dark Zurich
+Normalization (BN/IN/GN), skip depth, color space
+mIoU, class-wise lighting sensitivity
+Photometric propagation through skips
+PS_3
+U-Net, ResNet encoder-decoder, DPT
+NYUv2, ScanNet, DIODE
+Skip strategy, encoder depth, loss function
+Angular error, planar vs edge error
+Geometry-lighting disentanglement
+PS_4
+BASNet, U²-Net, PoolNet
+DUTS, DUT-OMRON, ECSSD
+Attention type, multi-scale fusion, global context
+F-score, FP in clutter, attention entropy
+Attention precision vs robustness
+PS_5
+MiDaS, DPT, DepthAnything
+KITTI, nuScenes, RobotCar
+CNN vs Transformer, skip strategy, multi-scale
+AbsRel, depth edge alignment, occlusion error
+Global attention vs local conv under weather
+PS_6
+DeepLab (heavy) → BiSeNet/DDRNet (light) → ENet (ultra-light)
+Cityscapes, Camvid
+Backbone depth, depthwise conv, dual-path
+FLOPs, params, mIoU drop, AUC
+Efficiency-robustness Pareto frontier
+
