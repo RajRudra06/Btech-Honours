@@ -36,142 +36,164 @@ This project does not require a complex build process. It is a client-side web a
 
 This directory serves as a repository for academic work, including a functional web-based AI path-finding simulation and related course materials. The HTML file can be directly opened in a browser to interact with the simulation.
 
-## RESEARCH Analysis
+## Finalized Research Direction
 
-**Academic Context and Objective:**
-Rudra is pursuing a minor degree in AI/ML requiring a research paper. The goal is empirical research aligned with academic standards, focusing on insightful analysis and controlled experimental design.
+### RESEARCH PROBLEM STATEMENT — FINAL DETAILED VERSION
 
-**Research Hierarchy:**
-*   **Field:** Computer Vision
-*   **Task:** Semantic Segmentation
-*   **Main Research Lens:** Architecture comparison
-*   **Supporting Lens:** Robustness to real-world image degradation
+**Title:**
+Geometric Perception Under Photometric Stress: How Architectural Choices in Surface Normal Estimation Respond to Structured Lighting and Colour Degradations
 
-**Problem Statement:**
-"An Architecture-Based Robustness Analysis of CNN Models for Semantic Segmentation under Real-World Image Degradation."
+**Field:**
+Artificial Intelligence / Machine Learning → Computer Vision → 3D Low-Level Vision → Surface Normal Estimation
 
-**Important Clarifications:**
-*   No claim of proposing a new architecture or state-of-the-art performance.
-*   Contribution is empirical understanding, not novelty for novelty’s sake.
-*   Architecture is the independent variable; robustness behavior is the dependent variable.
+**Research Path:**
+This is a field-driven, understanding-first study (Path B). The task — surface normal estimation — is used as a controlled testbed to study model behaviour, architectural properties, and limitations. The task itself is not the contribution. The contribution is the analysis and findings about how architectural design mediates robustness to photometric stress. Findings are intended to be generalisable across 3D vision tasks.
 
-**What "Architecture Comparison" Means:**
-Comparison is structured around architectural design philosophies:
-*   Encoder-decoder structure
-*   Strength of skip connections
-*   Multi-scale context aggregation
-*   Lightweight vs. heavyweight encoders
+**Aim:**
+To systematically study how architectural design choices in surface normal estimation models determine their sensitivity or robustness to photometric stress — specifically structured lighting and colour degradations that change image appearance without altering the underlying scene geometry. The goal is to identify which architectural components (encoder depth, skip-connection strategies, normalization layers) drive photometric invariance or sensitivity in geometric prediction tasks.
 
-**What "Robustness" Means:**
-Performance stability when input images deviate from ideal, clean training conditions. This is *not* adversarial robustness.
-Realistic degradations considered (scope restricted):
-*   Gaussian noise (sensor noise)
-*   Blur (motion or defocus)
-*   Resolution downscaling (distance / compression)
-Critical Experimental Rule: All models are trained *only* on clean data. Robustness is evaluated *only* at inference time. No retraining or adaptation is performed to isolate inherent architectural robustness.
+**The Core Task — Surface Normal Estimation:**
+Surface normal estimation is a 3D low-level vision task where a model takes a single 2D RGB image as input and predicts, for every pixel, the 3D orientation of the surface at that point — essentially which direction that surface is "facing" in 3D space. The output is a dense per-pixel map of continuous 3D unit vectors. It is not a classification task. There are no discrete labels. The model must infer geometry purely from visual cues in a 2D image.
 
-**Model Architectures Selected (with rationale):**
-A small, conceptually diverse set of architectures, each representing a distinct inductive bias:
-1.  **U-Net with ResNet encoder:** (Boundary-aware architectures) Strong encoder-decoder design, explicit skip connections, emphasizes spatial detail preservation.
-2.  **DeepLabV3+ with ResNet backbone:** (Context-heavy architectures) Atrous (dilated) convolutions, multi-scale context aggregation, emphasizes semantic consistency over fine detail.
-3.  **(Optional) U-Net with MobileNet encoder:** (Efficiency-biased architectures) Lightweight encoder, lower capacity, higher efficiency.
+This task is chosen because it creates a uniquely clean scientific setup: geometry and appearance are theoretically independent. A wall does not change its orientation because the lighting changes. A floor does not tilt because it is underexposed. This means that any degradation in surface normal predictions under photometric stress is entirely attributable to the model's failure to separate geometry from appearance — not to any actual change in the scene. This makes surface normal estimation an ideal testbed for studying photometric robustness in geometric prediction.
 
-**Experimental Methodology (High-Level but Precise):**
-1.  Select one dataset (urban scenes recommended).
-2.  Train all models using:
-    *   Identical data splits
-    *   Identical training protocol
-3.  Evaluate on:
-    *   Clean validation data
-    *   Degraded variants of the same data
-4.  Measure:
-    *   Mean IoU degradation trends
-    *   Class-wise failure behavior
-    *   Boundary erosion effects
-5.  Perform:
-    *   Quantitative analysis
-    *   Qualitative failure case inspection
-6.  Draw architecture → behavior conclusions.
+**The Stress Condition — Structured Photometric Degradations:**
+The models are trained on clean, well-lit images and evaluated at inference time only on photometrically degraded inputs. No retraining or fine-tuning is done on degraded data. This is a strict train-on-clean, test-on-degraded protocol.
 
-**Nature of the Contribution:**
-The paper will contribute:
-*   A controlled comparison of segmentation architectures.
-*   A systematic robustness evaluation under realistic degradations.
-*   Analytical insights linking architectural choices to failure modes.
+The degradation taxonomy consists of four structured photometric stress conditions, all of which alter image appearance while leaving scene geometry completely intact:
+- **Under-exposure** — the image is darkened, reducing visibility of surface detail especially in shadow regions
+- **Over-exposure** — the image is brightened, washing out highlight regions and reducing surface texture contrast
+- **Shadows** — localised lighting changes are introduced, creating sharp or soft shadow boundaries across surfaces
+- **Day-night / colour temperature shifts** — the overall colour balance and white balance of the image is shifted, simulating different times of day or artificial lighting conditions
 
-It deliberately avoids overclaiming novelty, excessive scope, or uncontrolled benchmarking.
+These four conditions are deliberately chosen because they are appearance-only degradations. Blur, noise, and resolution loss are explicitly excluded because they destroy spatial and structural information that the model needs to estimate geometry — including them would change the scientific question from "does geometry hold up when appearance changes" to "does geometry hold up when information is destroyed," which is a different and less focused research question.
 
-**Why this is not a toy project:**
-The framing shifts from "Which model performs better?" to "Why do certain architectural design choices lead to greater robustness under real-world degradation?", elevating it to research.
+**Research Lenses:**
 
-**Current Status / Pending:**
-All conceptual decisions are locked except one:
-*   Dataset category selection (Urban / outdoor scenes recommended; Medical imaging valid but requires stricter justification).
-Once the dataset is fixed, remaining steps are mechanical: Dataset selection, Final model instantiation, Paper outline, Timeline execution.
+**Primary lens — Architecture Comparison:**
+The study compares surface normal estimation architectures that differ along three specific axes:
+- Encoder depth — shallow versus deep feature extraction hierarchies
+- Skip-connection strategies — how much low-level spatial detail is passed from encoder to decoder
+- Normalization layer type — batch normalisation, instance normalisation, and layer normalisation, which are hypothesised to behave differently under photometric stress because they operate over different statistical scopes
 
-**One-line summary:**
-This work is a semantic segmentation study that compares CNN architectures and analyzes how their design choices affect robustness to real-world image degradation, using controlled experiments and analysis-driven conclusions.
+The hypothesis is that deeper, more abstract encoders better separate geometric features from appearance features, making them more photometrically invariant. Skip connections that pass low-level appearance information may reintroduce photometric sensitivity even when the deep encoder has abstracted it away. Normalization layers are a specific mechanism of interest because they explicitly standardise feature statistics, and their scope (batch-level vs instance-level vs layer-level) may determine how well they normalise out photometric variation.
 
-## Latest Research Discussion & Strategy
+**Supporting lens — Robustness Analysis:**
+Robustness is measured as the degradation in surface normal prediction quality when moving from clean to photometrically degraded inputs, under each of the four stress conditions independently. Standard surface normal estimation metrics are used — mean angular error, percentage of pixels within angular thresholds (δ1, δ2, δ3). Robustness is reported both globally across the full image and locally, separating planar regions from object boundaries.
 
-This session involved several key discussions and clarifications to solidify the research direction for Rudra's minor degree paper.
+**Failure Analysis Focus:**
+The failure analysis has a specific spatial structure. Two regions are analysed separately:
+- **Planar regions** — large flat surfaces (walls, floors, ceilings) where geometry is simple and consistent. These should in theory be the most robust to photometric stress because there is no competing geometric detail
+- **Object boundaries** — edges where one surface meets another, where geometry changes sharply and appearance cues (colour, texture, contrast) are most entangled with geometric cues
 
-### 1. Evaluation of Research Methodology
+The hypothesis is that object boundaries will degrade significantly more under photometric stress than planar regions, because boundaries rely more heavily on appearance contrast to infer the geometric transition. The secondary hypothesis is that architectures with stronger low-level skip connections will show greater boundary degradation under photometric stress, because they are more dependent on appearance-level edge cues.
 
-*   **Hierarchy Validation:** Rudra's structured approach (Field → Task → Research Lenses) was affirmed as an excellent, systematic methodology for topic selection, promoting clear problem definition, justified choices, and coherent causal reasoning. It is ideal for academic rigor and managing scope.
-*   **Correctness of Criteria:** The criteria used for task selection (Analytical depth, Experimental noise, Risk of inconclusive results) were confirmed to be fundamentally sound and sophisticated for designing research that yields meaningful and interpretable results.
+**What the Study is NOT doing:**
+- It is not retraining models on degraded data or studying domain adaptation
+- It is not proposing a new architecture or a new training method
+- It is not doing multi-task learning combining segmentation and surface normals
+- It is not studying blur, noise, or resolution degradation — those are geometric/quality degradations and belong to a different research question
+- It is not comparing CNNs vs Transformers as the primary axis — the comparison is within encoder-decoder families varying in depth, skip connections, and normalization
 
-### 2. ML vs. Deep Learning Distinction
+**Expected Contributions:**
+1. A structured empirical analysis of how photometric stress affects surface normal estimation across architectures — currently underexplored in literature compared to semantic segmentation robustness
+2. Evidence for or against the hypothesis that encoder depth provides photometric invariance in geometric prediction tasks
+3. Evidence for or against the normalization layer hypothesis — that instance norm or layer norm provide better photometric invariance than batch norm in this setting
+4. A spatially decomposed failure analysis separating planar region degradation from boundary degradation under photometric stress
+5. A reusable degradation evaluation protocol for photometric robustness in 3D low-level vision tasks
 
-*   **Clarification:** The fundamental difference was clarified: Machine Learning (ML) is the broader umbrella of algorithms that learn from data, while Deep Learning (DL) is a subset of ML that uses deep neural networks.
-*   **Key Differentiator:** The primary distinction lies in DL's ability for **automatic feature learning** directly from raw data, whereas traditional ML often relies on manual feature engineering.
-*   **Learning Paradigms:** It was emphasized that both ML and DL can encompass supervised, unsupervised, reinforcement learning, and other paradigms.
+**Datasets (indicative):**
+Standard surface normal estimation benchmarks — NYUv2, ScanNet, or iBims-1 — with photometric degradations applied synthetically at inference time using standard image processing transformations. Ground truth surface normals remain unchanged since the degradations do not alter scene geometry.
 
-### 3. Research Paper Dilemma: Path A vs. Path B
+## FOUR CRITICAL Qs
 
-*   **Dilemma Defined:** The choice between "Path A: Solve a concrete problem using the most appropriate model" and "Path B: Field-driven / phenomenon-driven research" was discussed.
+1.  **Identifying Suitability:** Identifying whether a model can be used for surface normal estimation. If yes, determining what needs to be surgically removed or modified to adapt it for that task.
+2.  **Confirming Axes:** Confirming and reading about the major architectural axes (e.g., encoder depth, skip connections).
+3.  **Studying Models & Categories:** Studying different models and their intricacies, mapping them to the identified axes, and creating categories based on these architectural choices.
+4.  **Verifying Isolation:** Making sure that models within an axis actually follow the process of isolating that axis. (i.e., checking if they truly test one variable at a time or if confounding factors make isolation impossible).
 
-*   **Path A — Problem-driven research:**
-    *   **Goal:** Solve a specific real-world problem using the most suitable model (e.g., Random Forest, XGBoost, CNN, hybrid ML/DL).
-    *   **Characteristics:** Focus on application, practical solution, often aiming for optimal performance.
+## Literature Survey Strategy
+...
+**The four questions you need to answer through literature survey:**
 
-*   **Path B — Field-driven / phenomenon-driven research (Understanding-first):**
-    *   **Goal:** Start from a field or task and study it to understand model behavior, properties, and limitations, not to solve a specific application.
-    *   **Characteristics:**
-        *   Task is a testbed, not the primary goal.
-        *   Goal is understanding: behavior, failure modes, inductive biases, trade-offs.
-        *   Results are generalizable.
-        *   Application comes later as implication, not claim.
-    *   **Research Hierarchy for Path B:**
-         └── Chosen field / task (e.g., semantic segmentation)
-              └── Research lenses
-                   ├── Architecture comparison
-                   ├── Robustness analysis
-                   ├── Generalisation study
-                   ├── Efficiency trade-offs
-                   └── Data-centric analysis
+1. Which existing models work for surface normal estimation, and what architectural components need to be modified or removed to adapt a general CNN for this task
+2. Which of the 10 axes are actually present and meaningfully varied across real surface normal estimation models in literature
+3. What are the major models in this space, how do they differ architecturally, and can they be grouped into categories across the axes
+4. For each axis you select, do real existing models actually isolate that axis cleanly enough to draw conclusions, or do confounds make isolation impossible
 
-*   **Recommendation for Path B:** Path B (field-driven research) was strongly recommended as the superior choice for Rudra's goals, as it aligns with his stated preference for analysis-driven research, leverages his conceptual strengths, offers higher academic value, and provides manageable scope for a first paper.
-*   **"Best of Both Worlds" Approach:** Rudra's proposed "best of both worlds" approach was fully endorsed. This strategy keeps the paper's core firmly in Path B (architectural analysis) while using real-world constraints (e.g., blur, noise) as motivating factors. The discussion section then maps these insights to practical scenarios, preserving analytical rigor while enhancing practical relevance.
+---
 
-### 4. Guidance on Exploring Other AI/ML Fields
+**Literature Survey Process — combining everything into one clean workflow:**
 
-*   **Strategic Exploration:** It was agreed that exploring other AI/ML domains (NLP, RL, etc.) is valuable for broadening perspective, identifying future research, and cross-pollination of ideas, but it must be done strategically to avoid derailing the current paper.
-*   **Methodology for Exploration:** Detailed step-by-step instructions were provided for using Google Scholar:
-    1.  **Initial Search:** Use broad domain + "survey" or "review" (e.g., "natural language processing survey").
-    2.  **Filter & Evaluate:** Apply recent time filters (e.g., "Since 2023"), scan titles/abstracts for scope, and prioritize papers with high citation counts.
-    3.  **Read Survey Papers:** Focus on understanding core concepts, major sub-areas, landmark papers, evaluation metrics, and open challenges.
-    4.  **Review Foundational Papers:** Briefly review highly cited papers mentioned in surveys (Abstract, Intro, Conclusion) for high-level contributions.
-*   **Key Caveats:** Emphasized timeboxing efforts, resisting rabbit holes, and maintaining focus on the current research paper as the primary objective.
+**Day 1 — Map the field in 2 hours, no reading**
 
-### 5. Unbiased Comparative Analysis of Computer Vision Tasks
+Go to paperswithcode.com/task/surface-normal-estimation. Do not read anything yet. Just look at the leaderboard. Take the top 10 models by NYUv2 benchmark score. For each one spend literally 2 minutes only on the architecture diagram in the paper. Fill only these four columns:
 
-*   **Objective Re-evaluation:** An in-depth, unbiased comparative analysis was conducted for major CV tasks (Image Classification, Object Detection, Semantic Segmentation, Instance Segmentation, Image Generation) against Rudra's specific research criteria.
-*   **Why Semantic Segmentation Dominates:** The analysis rigorously concluded that Semantic Segmentation is objectively the most suitable task for an architecture-centric robustness analysis due to:
-    *   **Pixel-level Error Localization:** Provides the most granular and diagnostic error signals.
-    *   **Direct Architectural Attribution:** Allows clear, causal links between architectural choices and observed robustness behaviors.
-    *   **Low Experimental Variance:** Offers high reproducibility and reliable results.
-    *   **Objective Ground Truth & Interpretable Metrics:** Provides unambiguous reference and intuitive performance measures (IoU).
-    *   **Clear Degradation Mapping:** Real-world degradations have direct, measurable impacts on pixel-level outputs.
-    *   **No Confounding Factors:** Reduces ambiguity compared to tasks with multiple interacting error sources (e.g., detection + segmentation in instance segmentation).
-*   **Conclusion:** Semantic Segmentation uniquely satisfies all requirements for drawing strong, interpretable mappings between architectural designs and their robustness under degradation, making it the optimal choice for his paper.
+| Paper | Encoder | Decoder | Code Available |
+
+That is your field map. 10 rows, 2 minutes each, 20 minutes total. You now know what encoders and decoders the field actually uses in practice, which directly starts answering questions 1 and 3.
+
+---
+
+**Day 2 — Go deeper on 5 papers, answer questions 1 and 2**
+
+From your Day 1 table pick the 5 papers that have code available. For each one read in this exact order and nothing else:
+
+First the abstract — one paragraph, confirm it is CNN based and evaluated on NYUv2
+
+Then the method section architecture diagram only — identify encoder, decoder, skip connections, normalization type if mentioned
+
+Then the experiments table — what metrics, what dataset, what baselines
+
+Do not read introduction, related work, or conclusion. Add three more columns to your table:
+
+| Skip Connections | Norm Type | Metric Used |
+
+After 5 papers you will have naturally seen which axes appear repeatedly in real models — that answers question 2. You will also have seen at least one paper describe what they changed from a base classification model to make it work for surface normals — that answers question 1.
+
+---
+
+**Day 3 — Google Scholar search for robustness, answer question 4**
+
+Go to scholar.google.com and run these three searches one by one, filter to 2018-2024, look only at papers above 50 citations:
+
+Search 1: "surface normal estimation robustness"
+Search 2: "photometric robustness dense prediction"
+Search 3: "image degradation surface normal CNN"
+
+For each result that looks relevant spend 5 minutes only on abstract and experiments section. You are looking for two things — has anyone already done photometric robustness on surface normals (if yes, note what they did so you can differentiate), and does any paper do controlled axis isolation (if yes, that answers question 4 directly by showing you how it is done in practice).
+
+Add one final column to your table:
+
+| Robustness Study Exists |
+
+---
+
+**Day 4 — Connected Papers, close the gaps**
+
+Take the single most relevant paper from your table — the one closest to your research question. Go to connectedpapers.com and paste its title. You will see a visual graph of related papers. Look at the papers connected to it that you have not read yet. Spend 10 minutes identifying any you missed that are relevant to axes or robustness. Read those abstracts only.
+
+By end of Day 4 your table should have 8-10 rows filled across all columns. At that point your four questions are answered:
+
+Question 1 is answered because you have seen multiple papers describe their architecture adaptations from encoder-only to encoder-decoder for surface normals
+
+Question 2 is answered because your table shows which axes naturally vary across real models
+
+Question 3 is answered because your table is literally the model categories grouped by encoder and decoder type
+
+Question 4 is answered because the robustness search either found papers doing controlled isolation (showing you it is possible and how) or found nothing (confirming your topic is underexplored and that perfect isolation is an open problem you acknowledge in limitations)
+
+---
+
+**The one rule throughout all four days**
+
+## THEORY.md Workflow
+
+When the user provides a block of text and asks to "summarize and put in THEORY.md":
+
+1.  **Refine & Contextualize:** Summarize the provided text, but critically, **expand and frame it** specifically within the context of the "Geometric Perception Under Photometric Stress" project. Connect general concepts (like CNNs or Surface Normals) directly to the project's hypotheses (e.g., "U-Net copies shadows," "ResNet ignores lighting").
+2.  **No Omissions:** DO NOT shorten the content by removing technical details, mathematical formulas, or specific step-by-step examples. The goal is coherence and project-alignment, not brevity. Ensure all provided math (e.g., coordinate transforms, normalization steps) is preserved.
+3.  **Format:**
+    *   Create a new H2 header with the date and a descriptive title (e.g., `## 2026-03-19: Topic Name`).
+    *   Use clear subsections, bullet points, and bold text for readability.
+4.  **Append:** Add this new section to the end of `THEORY.md`.
