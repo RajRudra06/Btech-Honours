@@ -663,6 +663,82 @@ The value of this research is in turning a **general intuition** into a **precis
 
 ---
 
+## Problem/Possible Solutions: Upgrading the Research Insight
+
+### Summary
+Below is a **concrete, step-by-step plan** to address each critique and upgrade the project from “predictable” → “insightful.” We focus on three upgrades:
+1.  **Pinpoint which skip layer fails (core contribution)**
+2.  **Validate on real-world data (robustness)**
+3.  **Optional: compare with a transformer (modern relevance)**
+
+---
+
+### 1) Solve the “Captain Obvious” Risk: Identifying which skip connection causes the failure
+
+#### Step 1 — Map skip connections in the model
+For **ResNet-101 encoder + U-Net decoder**, the skips come from:
+| Layer   | Resolution | Type       |
+| :--- | :--- | :--- |
+| **Conv2_x** | High       | Early skip |
+| **Conv3_x** | Medium     | Mid skip   |
+| **Conv4_x** | Low        | Deep skip  |
+
+#### Step 2 — Create ablation models
+Train these variants:
+*   **A. Full model (baseline):** All skips enabled.
+*   **B. No-skip model:** Remove all skips.
+*   **C. Early-skip removed (IMPORTANT):** Remove **Conv2_x skip only**. (Tests: Are high-frequency edges the problem?)
+*   **D. Deep-skip removed:** Remove **Conv4_x skip only**. (Tests: Are semantic skips involved?)
+*   **E. Only early skip:** Keep Conv2_x, remove others. (Tests: “edge-only model”)
+
+#### Step 3 — Run full evaluation & Analysis
+Look for: Does removing early skip reduce Δ error significantly? Does removing deep skip change little?
+**Final output (The "Gold Nugget"):** *“Conv2_x skip contributes X% of the photometric degradation, confirming early high-resolution features are the primary leakage pathway.”*
+
+---
+
+### 2) Solve the “Synthetic Trap”: Real-world Robustness
+
+#### Step 1 — Add real-world datasets
+Use **DIODE** or **iBims-1**.
+#### Step 2 — Evaluation plan
+Do NOT retrain; just run inference. Measure the same metrics (MAE, etc.) and check if the skip model still degrades more and if errors still concentrate at edges.
+**Final output:** *“The observed failure mode persists in real-world data, confirming it is not an artifact of synthetic augmentation.”*
+
+---
+
+### 3) Solve the “Legacy Problem”: CNN vs. Transformer
+
+#### Step 1 — Add a transformer model (Optional but strong)
+Example: **SegFormer** or any normal-estimation transformer.
+#### Step 2 — Compare behavior
+| Model Type  | Behavior                    |
+| :--- | :--- |
+| **CNN (U-Net)** | Strong degradation at edges |
+| **Transformer** | ?                           |
+**Final output:** *“Transformer-based models exhibit reduced sensitivity to photometric edges, suggesting the failure mode is tied to CNN skip pathways.”*
+
+---
+
+### 4) Strengthen Edge Analysis
+*   **Step 1:** Compute edge masks based on gradient thresholds.
+*   **Step 2:** Evaluate Edge MAE and Non-edge MAE per model.
+*   **Step 3:** Combine with ablations to show that No-early-skip models significantly reduce edge error.
+
+---
+
+### 5) Final Upgraded Pipeline
+1.  **Phase 1 — Training:** Full skip, No skip, Early-skip removed, Deep-skip removed.
+2.  **Phase 2 — Evaluation:** Clean (Baseline), Synthetic stress (Δ error), Real-world data (Validation).
+3.  **Phase 3 — Analysis:** Global error, Δ error, Edge vs. Non-edge, Compare ablations.
+
+---
+
+### Final Takeaway
+To upgrade the project: Don’t stop at **“skip vs. no-skip”**. Push into **Which skip? (core)**, **Does it hold in real data?**, and **Is it architecture-specific?**
+
+---
+
 ## 4. Top 5 Photometric Stresses (The "Stressor" Suite)
 We will subject the model to these five structured degradations to identify where the "Geometric-Appearance Disentanglement" breaks.
 
