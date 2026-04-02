@@ -26,6 +26,140 @@ To demonstrate that **State-of-the-Art (SOTA)** Surface Normal Estimation models
 
 ---
 
+## RESNET?
+
+## Comprehensive ResNet Theory (Study Note / Master Prompt)
+
+---
+
+### 1) Why ResNet was invented (historical problem)
+
+Before **ResNet (2015)**:
+*   **Problem 1: Vanishing / Exploding Gradients:** Backpropagation multiplies gradients across layers. In deep networks, gradients → very small (vanish) or very large (explode), causing early layers to stop learning.
+*   **Problem 2: Degradation Problem (CRITICAL):** Increasing depth **increased training error**. For example, a 20-layer CNN would perform better than a 56-layer CNN. This is NOT overfitting; it means optimization becomes harder.
+
+**Key insight:** A deeper network should at least learn **identity mapping**, but standard deep CNNs couldn’t.
+
+---
+
+### 2) Core idea of ResNet (Residual Learning)
+
+Instead of learning \( H(x) \), ResNet learns the residual \( F(x) = H(x) - x \). So, \( H(x) = F(x) + x \).
+
+*   **Interpretation:** Learn the **residual (difference)** instead of the full transformation, which makes optimization easier.
+*   **Residual block equation:** \( y = F(x) + x \), where \( x \) is the input and \( F(x) \) is the stacked conv layers.
+
+---
+
+### 3) Why residual connections work
+
+*   **(A) Gradient flow improvement:** Even if \( \frac{dF}{dx} \) is small, the gradient still flows via the **identity path**.
+*   **(B) Solves degradation problem:** If a deeper layer is useless, \( F(x) = 0 \Rightarrow y = x \). Identity mapping is easy, so the network won’t get worse with depth.
+
+---
+
+### 4) Types of residual connections
+
+1.  **Identity shortcut:** \( y = F(x) + x \). Same dimensions, no extra parameters.
+2.  **Projection shortcut:** \( y = F(x) + W_s x \). Uses 1×1 convolution to match dimensions when channels change or downsampling occurs.
+
+---
+
+### 5) Structure of ResNet
+
+ResNet is organized into stages (Conv1, Conv2_x, Conv3_x, Conv4_x, Conv5_x). Each stage consists of multiple residual blocks, gradually reducing spatial size and increasing channels.
+
+---
+
+### 6) Basic Residual Block (Shallow models: ResNet-18, 34)
+Structure: `Conv → BN → ReLU` followed by `Conv → BN` -> `Add input` -> `ReLU`.
+
+---
+
+### 7) Bottleneck Block (Deep models: ResNet-50+)
+Structure: `1×1 → reduce channels`, `3×3 → process`, `1×1 → expand channels`.
+*   **Why:** Reduce channels before expensive 3×3 conv (e.g., 256 → 64 → 64 → 256). Lower computation enables deeper networks.
+
+---
+
+### 8) Types of ResNet models
+| Model | Depth     | Block Type |
+| :--- | :--- | :--- |
+| **18** | shallow   | basic      |
+| **34** | shallow   | basic      |
+| **50** | deep      | bottleneck |
+| **101** | deeper    | bottleneck |
+| **152** | very deep | bottleneck |
+
+---
+
+### 9) What ResNet actually learns
+*   **Early layers:** Edges, Gradients, Textures.
+*   **Mid layers:** Patterns, Parts of objects.
+*   **Deep layers:** Object-level features, Semantic understanding.
+
+---
+
+### 10) Important distinction (for your research)
+*   **ResNet skips (SHORT skips):** Inside blocks, local, feature refinement. Do NOT directly pass raw image features.
+*   **U-Net skips (LONG skips):** Encoder → Decoder, pass high-resolution features. Carry edges, gradients, and photometric signals.
+👉 **Your research focuses on U-Net skips, not ResNet skips.**
+
+---
+
+### 11) Why ResNet is used as encoder
+*   Strong feature extraction and stable training.
+*   Pretrained on ImageNet.
+*   Provides multi-scale features.
+
+---
+
+### 12) Key intuition (final)
+ResNet allows networks to: **“Learn corrections instead of full transformations.”**
+
+---
+
+### 13) Must-read papers
+*   **Deep Residual Learning for Image Recognition** (Core paper)
+*   **Identity Mappings in Deep Residual Networks** (Explains why identity skip works)
+*   **DenseNet paper** (Extends the idea of skip connections)
+
+---
+
+## The Evolution of Deep Vision: From "What" to "Where Exactly"
+
+To understand why we are testing **Skip Connections**, we must look at the linear evolution of how AI "sees" and "paints" the world.
+
+---
+
+### Phase 1: The Observer (Image Classification)
+*   **The Task:** "Is this a room or a forest?"
+*   **The Model:** ResNet, VGG (Encoder-Only).
+*   **The Story:** The AI looks at a photo and "squints." It starts with high-resolution pixels and compresses them into a tiny 7x7 grid of "Meaning" (The Bottleneck). 
+*   **The Result:** It identifies the object ("Room"), but it **destroys all spatial info**. It forgets *where* the wall was; it only knows a wall exists.
+
+### Phase 2: The Painter (Basic Encoder-Decoder)
+*   **The Task:** "Color every pixel that belongs to the wall."
+*   **The Model:** FCN (Encoder + Decoder, No Skips).
+*   **The Story:** To paint a map, the AI must "un-squint." It takes the 7x7 "Meaning" and stretches it back to 224x224. 
+*   **The Result:** Because it "forgot" the exact edges during the squinting phase, the output is **blurry**. It guesses where the edges are, leading to "melted" geometry.
+
+### Phase 3: The Architect (U-Net / Skip Connections)
+*   **The Task:** "Draw a razor-sharp 3D map of the room."
+*   **The Model:** U-Net, Bae et al. (Encoder + Decoder + **Skips**).
+*   **The Story:** We realized the Encoder *did* see the sharp edges at the start. So, we built a **Bridge (Skip Connection)**. While the Decoder is painting, it reaches back to the Encoder's early notes to "trace" the sharp RGB lines.
+*   **The Result:** **Razor-Sharp** boundaries. The AI can now align 3D normals perfectly with 2D edges.
+
+---
+
+### Phase 4: Our Research (The "Cheating" Problem)
+*   **The Task:** Surface Normal Estimation under **Photometric Stress**.
+*   **The Conflict:** We are the first to ask: **"Is this Bridge (Skip Connection) a vulnerability?"**
+*   **The Hypothesis:** If a **shadow** creates a sharp line on a flat wall, the Encoder "traces" it via the Skip Connection. The Decoder, trusting the "trace" too much, paints a **fake 3D corner** where there is only a shadow.
+*   **The Goal:** To prove that while Skips provide **Accuracy (Sharpness)**, they destroy **Robustness (Invariance)** by forcing the model to "cheat" using lighting-sensitive RGB edges.
+
+---
+
 ## Skip and its meaning and AIM of experiment is ?
 
 ### The Story of Our Research: A Tale of Two Drawings
