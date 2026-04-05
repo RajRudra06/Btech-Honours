@@ -1,3 +1,17 @@
+## Code generation instructions
+
+All code generated for this project must adhere to the highest standards of scientific rigor and align strictly with the "11-Step Pipeline Summary" in `demo.md`.
+
+### Core Requirements:
+1.  **Geometric Integrity:** Surface normals must be treated as unit vectors. Any operation (upsampling, prediction, or loading) must be followed by L2-normalization to ensure $\|n\|_2 = 1$. 
+2.  **Surgical Isolation:** Architectural components (especially skip connections) must be modular and switchable (e.g., via a `use_skip` flag) to ensure fair comparison between models.
+3.  **Data Standardization:** Use the **Wang et al. (2015)** 654-image test split for evaluation. Ensure RGB images are normalized to ResNet-101 standards (ImageNet mean/std) and Ground Truth normals are mapped to the $[-1, 1]$ range.
+4.  **Artifact Prevention:** Avoid `ConvTranspose2d` to prevent checkerboard artifacts. Use **Bilinear Interpolation + 3x3 Convolution** for all upsampling stages.
+5.  **Loss Rigor:** Use **Cosine Similarity Loss** for training to measure angular alignment rather than pixel intensity difference.
+6.  **Edge Awareness:** Implement Sobel-based gradient masking for localized "Edge vs. Non-Edge" performance analysis.
+
+---
+
 # Project: BTech Honours - AI Path-Finding Simulation
 
 This directory appears to be a collection of academic materials related to a B.Tech Honours program, with a specific focus on an "AI Path-Finding Simulation" project.

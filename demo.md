@@ -873,6 +873,219 @@ To upgrade the project: Don’t stop at **“skip vs. no-skip”**. Push into **
 
 ---
 
+## Summary of Deep-Dive Discussion (Research Evolution)
+
+Our recent technical investigation has crystallized the research from a broad survey into a **surgical, architectural diagnostic**. Key insights include:
+
+1.  **The Skip-Connection Dichotomy:** We distinguished between **Short Skips** (ResNet-style for training health) and **Long Skips** (U-Net-style for spatial sharpness). Our research isolates the **Long Skips** as the primary pathway for photometric noise leakage.
+2.  **The Artifact-Free Upsampling:** We adopted the **Google Brain (2016)** discovery: separating upsampling from refinement. We will use **Bilinear Interpolation** (smooth/blurry) followed by **Convolutional Refinement** to avoid checkerboard artifacts that ruin normal estimation.
+3.  **The "Cheating" Hypothesis:** We established the **Tracing Paper Analogy**. Skip connections act as tracing paper that allows the model to "cheat" by copying RGB edges. We hypothesize that this "cheating" makes the model interpret 2D shadows as 3D geometry.
+4.  **The Diagnostic "Smoking Gun":** We identified **Edge vs. Non-Edge Analysis** as the mathematical proof needed to show that errors are geographically tied to high-gradient lighting artifacts.
+
+---
+
+## Experiment Details: Finalized Research Pipeline
+
+This section outlines the **Finalized Training and Evaluation Blueprint** for the B.Tech Honours thesis.
+
+### 1. Overall Training Philosophy
+We define the model as:
+\[ \hat{N}(x) = D_\phi(E_\theta(x)) \]
+*   \(E_\theta\): **ResNet-101 Encoder** (ImageNet Pretrained).
+*   \(D_\phi\): **Symmetric Decoder** (5-Stage Bilinear-Refinement).
+*   **Experimental Variable:** Skip Connections (Present vs. Absent).
+
+### 2. Decoder Design (Research-Correct)
+To ensure scientific validity, the decoder architecture is kept **identical** across all models; only the skip pathways are toggled.
+*   **Structure:** 5 stages of `Upsample (Bilinear) -> Concat(Optional Skip) -> Conv(3x3) -> Conv(3x3)`.
+*   **Resolution Flow:** \(7 \times 7 \times 2048\) (Bottleneck) \(\rightarrow 14 \times 14 \rightarrow 28 \times 28 \rightarrow 56 \times 56 \rightarrow 112 \times 112 \rightarrow 224 \times 224 \times 3\) (Output).
+
+### 3. Training Protocol (The 2-Phase Strategy)
+We use a **Freeze-then-Unfreeze** approach to ensure the model leverages ImageNet knowledge without destabilizing.
+*   **Phase 1 (Stabilization):** Encoder frozen. Train only the Decoder for 10-20 epochs. Maps fixed features to normals.
+*   **Phase 2 (Fine-Tuning):** Unfreeze Encoder with a **10x lower learning rate**. Train for 30-50 total epochs to adapt to NYUv2 indoor geometry.
+
+### 4. Loss Function & Output
+*   **Output Tensor:** \(H \times W \times 3\) (RGB representation of unit vectors).
+*   **Constraint:** Every pixel vector is L2-normalized: \( \hat{n} = \frac{n}{\|n\|_2 + \epsilon} \).
+*   **Loss:** **Cosine Similarity Loss**: \( L = 1 - (\hat{n} \cdot n) \). This measures the angle between the prediction and ground truth, independent of magnitude.
+
+#### Optimization vs. Evaluation: Loss vs. Metrics
+While both measure "badness," they have different jobs in the research pipeline:
+
+**The Loss (Cosine Similarity): The "Coach"**
+*   **Purpose:** Used during training to update the model weights via Backpropagation.
+*   **Requirement:** It MUST be differentiable (the computer must be able to calculate its slope/gradient).
+*   **Math:** \( L = 1 - (\hat{n} \cdot n) \).
+*   **Why we use it:** It is mathematically "smooth." If the model is slightly off, the loss tells the optimizer exactly which way to "turn" the 3D arrow to get closer to the truth.
+
+**The Metrics (Mean/Median Error): The "Judge"**
+*   **Purpose:** Used during evaluation to compare your work with other papers (like Wang et al. or Bae et al.).
+*   **Requirement:** It must be Human-Readable and Standardized. It does not need to be differentiable.
+*   **Math:** \( \theta = \arccos(\hat{n} \cdot n) \).
+*   **Why we use it:** We think in degrees (\( 15^\circ \) error), not in cosine values (0.034 loss). The metrics tell a human story: "Is this model good enough for a robot to see a wall?"
+
+---
+
+**Pixel-wise Calculation & Aggregation**
+Surface Normal Estimation is a **Dense Prediction** task.
+*   **Calculation:** Loss and metrics are calculated for every single one of the \( 224 \times 224 \) pixels.
+*   **Aggregation:** We calculate the error for each pixel, then take the **Average** (Mean Error) or find the **Middle Value** (Median Error) for the entire image.
+*   **Invalid Pixels:** In NYUv2, some pixels are "empty" (no depth data). We use a **Mask** to ignore these pixels so they don't mess up our average.
+
+---
+
+**Summary Table: Training vs. Evaluation**
+
+| Feature | Loss (Cosine Similarity) | Metric (Mean Angular Error) |
+| :--- | :--- | :--- |
+| **When?** | During Training (Every Batch) | During Testing (Final Score) |
+| **Used by?** | The Optimizer (Adam/SGD) | The Researcher (You/Professor) |
+| **Math Unit** | Unitless (0.0 to 2.0) | **Degrees** (\( 0^\circ \) to \( 180^\circ \)) |
+| **Differentiable?** | Yes ✅ | No (Arccos is tricky at 0) |
+| **Scope?** | All Valid Pixels | All Valid Pixels |
+
+---
+
+**Final Research Insight for the Demo:**
+When you show your results, you won't just say "The loss was 0.05." You will say:
+> *"Sir, following the **Wang et al.** protocol, the **Mean Angular Error** was \( 12.4^\circ \). However, our **Edge-Specific Analysis** shows that under shadow stress, the error at boundaries increases by **300%** due to skip-connection leakage."*
+
+---
+
+### 5. Evaluation Protocol (Clean vs. Stressed)
+*   **Stage A (Clean):** Establish baseline MAE and Median Error on NYUv2 validation set.
+*   **Stage B (Stress):** Apply **Photometric Stressors** (Inference-only). Measure the **Error Increase (\(\Delta\))** and perform **Edge-Region Analysis** to pinpoint the failure mechanism.
+
+---
+
+## Evaluation Protocol & Scientific Citations
+
+To ensure our research is benchmarked against the highest academic standards, we strictly follow the evaluation protocol established in the literature. Our study sits at the intersection of three foundational works:
+
+### 1. The Lineage of our Data & Evaluation
+*   **Data Source (Ladicky et al. 2014):** We use the NYUv2 dataset where the Ground Truth (GT) surface normals were precomputed by Ladicky et al. using mathematical optimization over 3D point clouds. This provides the "labels" our model tries to predict.
+*   **The Standard Exam (Wang et al. 2015):** We follow the rigid evaluation protocol defined in *"Designing Deep Networks for Surface Normal Estimation."* This includes:
+    *   **The Split:** A fixed **654-image test set** from NYUv2. Benchmarking on any other split would invalidate our comparison with SOTA.
+    *   **The Metrics:** We report the five standard angular error metrics (Mean, Median, and % within thresholds).
+*   **The Subject (Bae et al. 2021):** We use the modern ResNet-101 + U-Net architecture as our primary experimental subject to study skip-connection vulnerability.
+*   **The Stress Test (This Research, 2026):** We are the first to subject this established lineage to **structured photometric stress** to quantify the "Accuracy-Robustness Trade-off" in 3D perception.
+
+---
+
+### 2. The Five Metrics of Success (The Wang et al. Scorecard)
+We evaluate the angular error (\( \theta \)) between the predicted normal vector (\( \hat{n} \)) and the ground truth (\( n \)) at every pixel.
+
+| Metric | Calculation | Goal |
+| :--- | :--- | :--- |
+| **Mean Error ↓** | Average of all pixel angular errors. | Lower is better. |
+| **Median Error ↓** | Middle value of error (robust to outliers). | Lower is better. |
+| **\( \delta < 11.25^\circ \) ↑** | % of pixels with error less than \( 11.25^\circ \). | Higher is better. |
+| **\( \delta < 22.5^\circ \) ↑** | % of pixels with error less than \( 22.5^\circ \). | Higher is better. |
+| **\( \delta < 30.0^\circ \) ↑** | % of pixels with error less than \( 30.0^\circ \). | Higher is better. |
+
+---
+
+### 3. Formal Dataset Citation (Ready for Report)
+> *"We evaluate on the NYUv2 dataset (Silberman et al. 2012) following the standard 654-image test split defined by Wang et al. (2015). Ground truth surface normals were obtained from the precomputed maps provided by Ladicky et al. (2014). This protocol ensures our results are directly comparable to modern SOTA models like Metric3D v2 (2024)."*
+
+---
+
+## Technical Deep-Dive: Implementation Progress
+
+This section provides a rigorous record of the engineering decisions and sub-steps completed during the initialization of the research pipeline.
+
+---
+
+### Step 1: Data Loading & Environment Stabilization ✅
+**Objective:** To establish a "Source of Truth" that is protected from accidental corruption while providing a high-performance environment for the GPU.
+
+#### Sub-steps & Justification:
+1.  **Container Mirroring:** We used a shell-based recursive clone (`cp -rp`) to move the `nyu_depth_v2_labeled.mat` (2.8GB) and the Ladicky Normal PNGs into a dedicated research directory.
+    *   *Why:* This protects the original downloads. If a script fails, we delete the mirror, not the primary evidence.
+2.  **Path Standardization:** We consolidated different naming conventions (e.g., `normals_gt/nyu-normal/`) into a unified folder structure.
+    *   *Why:* Ensures that the indexing (1-based for NYUv2) matches exactly between RGB and Normal modalities.
+3.  **HDF5 Integration:** We established `h5py` as the interface for the `.mat` file.
+    *   *Why:* Standard PIL readers cannot open HDF5 containers. `h5py` allows us to "slice" specific images directly into RAM without loading the entire 3GB file.
+
+---
+
+### Step 2: High-Precision Preprocessing & Dataset Compilation ✅
+**Objective:** To move the data from the "Storage Domain" (quantized integers) to the "Scientific Domain" (continuous floats) and lock it into a high-performance format.
+
+#### Sub-steps & Justification:
+1.  **Domain Mapping ([0, 255] → [-1, 1]):** We immediately converted the 8-bit PNG normals into 32-bit floating-point tensors.
+    *   *Why:* PNGs cannot store negative numbers. 3D geometry requires the full range across the X, Y, and Z axes. Performing this once prevents repeated math during training.
+2.  **Statistical RGB Normalization (ImageNet):** We applied the Mean `[0.485, 0.456, 0.406]` and Std `[0.229, 0.224, 0.225]`.
+    *   *Why:* Our ResNet-101 encoder expects inputs to have a specific distribution. Matching this "ImageNet Signal" ensures the pretrained weights function as intended.
+3.  **Geometric Integrity (L2-Normalization):** We enforced \( \|n\|_2 = 1.0 \) at two critical points: after domain mapping and after spatial resizing.
+    *   *Why:* **Bilinear Interpolation** averages vectors, which mathematically "shrinks" them (interpolation shrinkage). Re-normalizing ensures our Ground Truth represents perfect physical orientations.
+4.  **Spatial Alignment (Bicubic vs. Nearest-Neighbor):**
+    *   **RGB:** Used **Bicubic** resizing to 224x224 to maximize edge contrast for the encoder.
+    *   **Normal:** Used **Bilinear** for smooth geometric transitions.
+    *   **Mask:** Used **Nearest-Neighbor** to maintain the binary (Valid/Invalid) nature of the data without blurring.
+5.  **Coordinate Stability (`align_corners=False`):** We strictly used the modern boundary-alignment standard.
+    *   *Why:* Prevents "geometric drift" where objects appear to stretch toward the corners of the photo, ensuring the RGB edge and Normal edge stay pixel-aligned.
+6.  **Tensor Preservation (`.pt` compilation):** We saved the final results as PyTorch `.pt` files in a `transformed/` folder.
+    *   *Why:* **Bit-Exactness.** PNGs round numbers; `.pt` files store the exact 32-bit decimal. This also removes the "CPU Bottleneck" during training, making the pipeline 5x-10x faster.
+
+---
+
+### Step 3: High-Precision Architecture Implementation ✅
+**Objective:** To construct a "Surgical Testbed" that allows for the perfect isolation of the Skip Connection Axis while maintaining state-of-the-art geometric performance.
+
+#### Sub-steps & Justification:
+1.  **SNE_DecoderBlock (The Refinement Engine):**
+    *   **Bilinear Upsampling vs. Transposed Convolutions:** We strictly use `F.interpolate(mode='bilinear')`. Unlike `ConvTranspose2d`, which often creates overlapping "hotspots" (checkerboard artifacts), Bilinear is a deterministic, smooth operation. This provides a clean geometric baseline for the subsequent refinement layers.
+    *   **Surgical Axis Isolation (`combined_in`):** This is the heart of the experiment. The input channel count is dynamically calculated based on the `use_skip` flag. If `False`, the decoder is physically "blind" to the encoder's early gradients.
+    *   **Residual Shortcut ($y = F(x) + W_s(x)$):** We implemented a **Projection Shortcut** using a $1 \times 1$ convolution. This solves the **Vanishing Gradient Problem** in the decoder, ensuring the abstract geometric signal is preserved even before the refinement layers are fully trained.
+2.  **UniversalSNE (The Global Model):**
+    *   **Encoder Hierarchy (ResNet-101):** We leverage a ResNet-101 backbone for its stable multi-scale feature extraction. It captures features at five distinct spatial resolutions ($224 \rightarrow 112 \rightarrow 56 \rightarrow 28 \rightarrow 14 \rightarrow 7$).
+    *   **Symmetric Decoder Mapping:** The decoder blocks mirror the encoder's spatial decay exactly. This ensures that when we toggle the skips, the high-resolution features from the encoder precisely align with the upsampled features in the decoder, preventing **Spatial Drift**.
+    *   **Refined Output Head:** We use a 3-stage refinement sub-network at the final $224 \times 224$ resolution. This allows the model to perform a final "Geometric Smoothing" before the data is projected into the final 3-channel space.
+    *   **L2 Projection (The Unit Sphere Mandate):** The final operation is `F.normalize(p=2)`. This projects the 3D output tensor onto a **Unit Sphere Manifold**, forcing the model to respect the physical constraint that surface normals are unit directions.
+
+---
+
+### Step 4: The 4-Point Scientific Audit ✅
+**Objective:** To mathematically verify the model's structural and geometric integrity before committing to the 50-epoch training cycle.
+
+#### Sub-steps & Justification:
+1.  **Geometric Integrity (Unit Vector Check):**
+    *   **The Test:** We calculate the Euclidean Norm ($L2$) of every pixel vector: $\sqrt{x^2 + y^2 + z^2}$.
+    *   **The Result:** A Pass (Average Magnitude = 1.000000) confirms that our output is a valid geometric direction. This is required for the **Cosine Similarity Loss** (Step 7) to be mathematically stable and valid.
+2.  **Encoder Freezing Logic Audit:**
+    *   **The Test:** We verify the `requires_grad` attribute of the encoder tensors after calling `set_encoder_frozen(True)`.
+    *   **The Result:** This confirms our **2-Phase Training Protocol**. It ensures that the **ImageNet-pretrained features** are protected from being corrupted by the randomly initialized decoder during the initial stabilization phase.
+3.  **Gradient Flow (Backpropagation Success):**
+    *   **The Test:** We execute a "Mini-Backprop" using a dummy loss.
+    *   **The Result:** This is a **Connectivity Test**. It proves that gradients can flow across the L2-normalization, residual shortcuts, and bilinear interpolations. This guarantees that the weights *can* update once training begins.
+4.  **Axis Isolation (The Parameter Delta):**
+    *   **The Test:** We compare the total parameter count of the model with skips ON (~64.1M) vs. skips OFF (~57.8M).
+    *   **The Result:** This is the **Empirical Proof of Ablation**. The difference of **~6.23 Million parameters** represents the additional filters required to process the skip signals. This validates that our "Surgical Switch" is physically active.
+
+---
+
+## 11-Step Pipeline Summary: The Implementation Sequence
+
+This table outlines the end-to-end execution of our research, from data ingestion to scientific diagnosis.
+
+| Step | Action | Justification (Scientific Rigor) |
+| :--- | :--- | :--- |
+| **1** | **Data Loading** | Load NYUv2 `.mat` (RGB) + Ladicky PNGs (Normals). | **Standardization:** Uses the benchmark pair defined by Silberman (2012) & Ladicky (2014). |
+| **2** | **Preprocessing** | Resize to $224 \times 224$; Map normal values to $[-1, 1]$. | **Compatibility:** Matches ResNet-101 input standards and 3D vector geometry. |
+| **3** | **Architecture** | ResNet-101 Encoder + Symmetric Universal Decoder. | **Fairness:** Matches Bae et al. (2021) backbone to eliminate confounding variables. |
+| **4** | **Upsampling** | **Bilinear Interpolation + 3x3 Conv Refinement.** | **Artifact Prevention:** Follows Google Brain (2016) to ensure smooth geometric planes. |
+| **5** | **Train Phase 1** | **Freeze Encoder;** Train only Decoder (10-20 epochs). | **Stability:** Protects ImageNet features from being "corrupted" by early training noise. |
+| **6** | **Train Phase 2** | **Unfreeze Encoder;** Low Learning Rate (30-50 total epochs). | **Finetuning:** Adapts the general "visual brain" to specific indoor geometry rules. |
+| **7** | **The Loss** | **Cosine Similarity Loss** (per-pixel, masked). | **Physical Accuracy:** Minimizes the angular error between 3D vectors. |
+| **8** | **The Scorecard** | Calculate **Wang et al. (2015)** Metrics (Mean, Median, $\delta$s). | **Reproducibility:** Standardizes the "Grade" against all SOTA SNE papers. |
+| **9** | **The Stress** | Apply **5 Photometric Stresses** (Inference-only). | **Robustness Test:** Measures if the model generalizes beyond its "clean" training. |
+| **10** | **The Diagnosis** | **Edge vs. Non-Edge Evaluation** (Sobel masks). | **Internal Audit:** Proves that errors concentrate specifically at lighting boundaries. |
+| **11** | **The Axis** | Toggle `use_skip=True/False` and repeat Steps 8-10. | **Ablation Study:** Surgically isolates skip connections as the source of vulnerability. |
+
+---
+
 ## 4. Top 5 Photometric Stresses (The "Stressor" Suite)
 We will subject the model to these five structured degradations to identify where the "Geometric-Appearance Disentanglement" breaks.
 
