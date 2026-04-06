@@ -1,5 +1,7 @@
 ## Code generation instructions
 
+**NEVER INCLUDE MANUAL LINE NUMBERS AT THE START OF CODE BLOCKS. ALL CODE MUST BE PROVIDED AS CLEAN, COPY-PASTE READY MARKDOWN.**
+
 All code generated for this project must adhere to the highest standards of scientific rigor and align strictly with the "11-Step Pipeline Summary" in `demo.md`.
 
 ### Core Requirements:
@@ -209,5 +211,27 @@ When the user provides a block of text and asks to "summarize and put in THEORY.
 2.  **No Omissions:** DO NOT shorten the content by removing technical details, mathematical formulas, or specific step-by-step examples. The goal is coherence and project-alignment, not brevity. Ensure all provided math (e.g., coordinate transforms, normalization steps) is preserved.
 3.  **Format:**
     *   Create a new H2 header with the date and a descriptive title (e.g., `## 2026-03-19: Topic Name`).
-    *   Use clear subsections, bullet points, and bold text for readability.
-4.  **Append:** Add this new section to the end of `THEORY.md`.
+## 2026-04-05: lastCP - No-Skip Baseline Completion & Real-World Validation
+
+### Session Summary:
+Today, we successfully finalized the training and initial evaluation of the **No-Skip Baseline** (Model A). This model serves as our scientific "Control Group" to prove the hypothesis that removing skip connections provides **Photometric Robustness** at the cost of **Geometric Precision**.
+
+### 1. Training Execution (Model A: No-Skip)
+*   **Phase 1 (Stabilization):**
+    *   **Strategy:** Encoder (ResNet-101) FROZEN; Decoder trained for 50 epochs.
+    *   **Result:** V-MAE plateaued at **34.07°** at Epoch 35. 
+    *   **Insight:** This established the "Geometric Floor"—the maximum accuracy the decoder can achieve by simply interpreting fixed ImageNet features without spatial "tracing paper."
+*   **Phase 2 (Fine-Tuning):**
+    *   **Strategy:** Encoder UNFROZEN; `lr=1e-5`; Trained for 30 epochs.
+    *   **Result:** V-MAE reached **33.2°** and Accuracy ($\delta < 11.25^\circ$) reached **21.0%**.
+    *   **Finding:** The model hit a "Structural Plateau." Even with the brain (encoder) awake, the lack of skip connections prevents the model from "sharpening" edges. The 15.1° gap between T-MAE (18.1°) and V-MAE (33.2°) indicates the model is forced to memorize context rather than learn general geometric boundaries.
+
+### 2. Real-World Empirical Validation (Dorm Room Inference)
+We tested the 33.2° model on high-resolution phone photos of a dorm room to verify cross-dataset generalization.
+*   **The "Robustness" Win:** In regions with a **fluorescent light** and **sharp wall shadows**, the model predicted a perfectly flat geometric plane. It successfully filtered out the lighting noise, proving it is **Photometrically Disentangled.**
+*   **The "Accuracy" Failure:** Boundaries (door frames, wardrobe edges) appeared **melted and rounded**. The model correctly identified the "what" (vertical plane) but failed the "where" (pixel-exact boundary).
+
+### 3. Research Status:
+We have mathematically and visually quantified the "No-Skip" side of the Accuracy-Robustness trade-off. 
+*   **Baseline Status:** **COMPLETE.**
+*   **Next Milestone:** Initialize and train the **Full-Skip Model** (Model B) to demonstrate the inverse: high precision but extreme fragility to the same dorm room shadows/lights.
